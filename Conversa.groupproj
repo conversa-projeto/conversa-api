@@ -3,7 +3,7 @@
         <ProjectGuid>{5F79EDB9-A1A9-4643-B13F-46049561E318}</ProjectGuid>
     </PropertyGroup>
     <ItemGroup>
-        <Projects Include="Servidor.dproj">
+        <Projects Include="Conversa.dproj">
             <Dependencies/>
         </Projects>
         <Projects Include="Cliente.dproj">
@@ -17,14 +17,14 @@
             <Default.Personality/>
         </BorlandProject>
     </ProjectExtensions>
-    <Target Name="Servidor">
-        <MSBuild Projects="Servidor.dproj"/>
+    <Target Name="Conversa">
+        <MSBuild Projects="Conversa.dproj"/>
     </Target>
-    <Target Name="Servidor:Clean">
-        <MSBuild Projects="Servidor.dproj" Targets="Clean"/>
+    <Target Name="Conversa:Clean">
+        <MSBuild Projects="Conversa.dproj" Targets="Clean"/>
     </Target>
-    <Target Name="Servidor:Make">
-        <MSBuild Projects="Servidor.dproj" Targets="Make"/>
+    <Target Name="Conversa:Make">
+        <MSBuild Projects="Conversa.dproj" Targets="Make"/>
     </Target>
     <Target Name="Cliente">
         <MSBuild Projects="Cliente.dproj"/>
@@ -36,13 +36,13 @@
         <MSBuild Projects="Cliente.dproj" Targets="Make"/>
     </Target>
     <Target Name="Build">
-        <CallTarget Targets="Servidor;Cliente"/>
+        <CallTarget Targets="Conversa;Cliente"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="Servidor:Clean;Cliente:Clean"/>
+        <CallTarget Targets="Conversa:Clean;Cliente:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="Servidor:Make;Cliente:Make"/>
+        <CallTarget Targets="Conversa:Make;Cliente:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>

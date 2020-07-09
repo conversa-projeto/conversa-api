@@ -1,4 +1,4 @@
-﻿program Servidor;
+﻿program Conversa;
 
 {$APPTYPE CONSOLE}
 
@@ -10,11 +10,10 @@ uses
   IdContext,
   System.JSON,
   Conversa.Dados in 'src\servidor\Conversa.Dados.pas' {ConversaDados: TDataModule},
-  WebSocket.Server in 'src\servidor\WebSocket.Server.pas';
+  Conversa.WebSocket in 'src\servidor\Conversa.WebSocket.pas';
 
 var
   WebSocket: TWebSocketServer;
-  sBuff: String;
 begin
   WebSocket := TWebSocketServer.Create;
   try
@@ -28,12 +27,6 @@ begin
 
     WebSocket.Port(82);
     WebSocket.Start;
-
-    while True do
-    begin
-      ReadLn(sBuff);
-      WebSocket.SendAll(sBuff);
-    end;
   finally
     FreeAndNil(WebSocket);
   end;

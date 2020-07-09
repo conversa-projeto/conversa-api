@@ -5,7 +5,7 @@
  * Copyright 2018, Indy Working Group.
 }
 
-unit WebSocket.Client;
+unit Conversa.WebSocket;
 
 interface
 

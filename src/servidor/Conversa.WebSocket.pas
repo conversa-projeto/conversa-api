@@ -1,17 +1,12 @@
 ﻿(*------------------------------------------------------------------------------
-Irmãos Gonçalves Comércio e Indústria LTDA
-
 Implementação de servidor WebSocket para Delphi
 
 Projeto original do servidor
 https://gitlab.com/staspiter/websocket-demo
 
-Classe TWebSocketThread implementada
-Autor: Eduardo Rodrigues Pêgo
-
-Data: 30/04/2020
+Eduardo - 30/04/2020
 ------------------------------------------------------------------------------*)
-unit WebSocket.Server;
+unit Conversa.WebSocket;
 
 interface
 
@@ -36,7 +31,6 @@ type
     lSyncFunctionEvent: TSimpleEvent;
     lSyncFunctionTrigger: TFunc<String, Boolean>;
     procedure ReceiveText(AContext: TIdContext);
-    function Trigger(s: String): Boolean;
   protected
     FPort: Integer;
     FMethodReceive: TProc<TIdContext, String>;
@@ -52,7 +46,6 @@ type
     function MethodReceive(M: TProc<TIdContext, String>): TWebSocketServer; overload;
     function MethodReceive: TProc<TIdContext, String>; overload;
     function SendAll(sData: String): TWebSocketServer;
-    function SendWait(Context: TIdContext; sMsg: String): String;
     function Send(Context: TIdContext; sData: String): TWebSocketServer;
     function Stop: TWebSocketServer;
     function Start: TWebSocketServer;
@@ -230,28 +223,6 @@ begin
         TWebSocketIOHandlerHelper(TIdContext(Clients[I]).Connection.IOHandler).WriteString(sData);
   finally
     Contexts.UnlockList;
-  end;
-end;
-
-function TWebSocketServer.Trigger(s: String): Boolean;
-begin
-  FResult := s;
-  Result := True;
-end;
-
-function TWebSocketServer.SendWait(Context: TIdContext; sMsg: String): String;
-begin
-  FResult := '';
-  Self.lSyncFunctionTrigger := Trigger;
-  try
-    Self.lSyncFunctionEvent := TSimpleEvent.Create;
-    Self.lSyncFunctionEvent.ResetEvent;
-    Self.SendAll(sMsg);
-    Self.lSyncFunctionEvent.WaitFor;
-    Result := FResult;
-  finally
-    Self.lSyncFunctionTrigger := nil;
-    Self.lSyncFunctionEvent.Free;
   end;
 end;
 

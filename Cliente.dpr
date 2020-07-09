@@ -10,7 +10,7 @@ uses
   IdTCPClient,
   System.Classes,
   IdSSLOpenSSL,
-  WebSocket.Client in 'src\cliente\WebSocket.Client.pas';
+  Conversa.WebSocket in 'src\cliente\Conversa.WebSocket.pas';
 
 var
   WebSocket: TWebSocketClient;
