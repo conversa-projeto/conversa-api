@@ -26,7 +26,8 @@ uses
   FireDAC.DApt.Intf,
   FireDAC.DApt,
   FireDAC.Comp.DataSet,
-  FireDAC.Comp.Client;
+  FireDAC.Comp.Client,
+  Conversa.Comando;
 
 type
   TConversaDados = class(TDataModule)
@@ -78,7 +79,10 @@ type
   private
     function TabelaParaJSONArray(qry: TFDQuery): TJSONArray;
     function TabelaParaJSONObject(qry: TFDQuery): TJSONObject;
+    function ObterUsuario(iID: Integer): TJSONObject;
   public
+    class procedure CriarDados;
+    procedure ExecutaComando(const cmdRequisicao: TComando; var cmdResposta: TComando);
   end;
 
 threadvar
@@ -89,6 +93,36 @@ implementation
 {%CLASSGROUP 'FMX.Controls.TControl'}
 
 {$R *.dfm}
+
+uses
+  System.StrUtils;
+
+class procedure TConversaDados.CriarDados;
+begin
+  if not Assigned(ConversaDados) then
+    ConversaDados := TConversaDados.Create(nil);
+end;
+
+procedure TConversaDados.ExecutaComando(const cmdRequisicao: TComando; var cmdResposta: TComando);
+begin
+  if cmdRequisicao.Recurso.Equals('usuario') and cmdRequisicao.Metodo.Equals('obter') then
+  begin
+    if cmdRequisicao.Dados.Count = 0 then
+      raise Exception.Create('Informe o ID do usuário para obte-lo!');
+    cmdResposta.Dados.AddElement(ObterUsuario(StrToInt(cmdRequisicao.Dados.Items[0].Value)));
+  end;
+end;
+
+function TConversaDados.ObterUsuario(iID: Integer): TJSONObject;
+var
+  sSQL: String;
+begin
+  sSQL := qryUsuario.SQL.Text;
+  qryUsuario.Open(sSQL +' where id = '+ IntToStr(iID));
+  Result := TabelaParaJSONObject(qryUsuario);
+  qryUsuario.Close;
+  qryUsuario.SQL.Text := sSQL;
+end;
 
 function TConversaDados.TabelaParaJSONObject(qry: TFDQuery): TJSONObject;
 var
