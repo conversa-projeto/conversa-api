@@ -11,9 +11,30 @@
 
 		// Connection opened
 		socket.addEventListener('open', function (event) {
-			socket.send(JSON.stringify({
-				a: 'a'
-			}));
+			socket.send(JSON.stringify(
+			  {			  
+			    "recurso": "arquivo.tipo",
+			    "metodo": "obter",             
+			    "dados": [                     
+			      {
+			        "campo": "id",
+			        "tipo": "numero",
+			        "operador": "em",
+			        "valor": [
+			        	1, 
+			        	2, 
+			        	3
+			        ]
+			      },
+			      {
+			        "campo": "descricao",
+			        "tipo": "texto",
+			        "operador": "contem",
+			        "valor": "%e%"
+			      }
+			    ]
+			  }
+			));
 		});
 
 		// Listen for messages

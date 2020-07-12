@@ -1,4 +1,6 @@
-﻿program Conversa;
+﻿// Eduardo - 09/07/2020
+
+program Conversa;
 
 {$APPTYPE CONSOLE}
 
@@ -7,8 +9,9 @@
 uses
   Conversa.Dados in 'src\servidor\Conversa.Dados.pas' {ConversaDados: TDataModule},
   Conversa.WebSocket in 'src\servidor\Conversa.WebSocket.pas',
-  Conversa.Comando in 'src\servidor\Conversa.Comando.pas',
-  Conversa.Principal in 'src\cliente\Conversa.Principal.pas';
+  Conversa.Comando in 'src\comum\Conversa.Comando.pas',
+  Conversa.Principal in 'src\servidor\Conversa.Principal.pas',
+  Conversa.Consulta in 'src\comum\Conversa.Consulta.pas';
 
 begin
   IniciarConversa;

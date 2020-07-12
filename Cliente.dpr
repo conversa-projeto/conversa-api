@@ -1,4 +1,6 @@
-﻿program Cliente;
+﻿// Eduardo - 09/07/2020
+
+program Cliente;
 
 {$APPTYPE CONSOLE}
 
@@ -8,13 +10,17 @@ uses
   System.SysUtils,
   System.StrUtils,
   IdTCPClient,
+  System.JSON,
   System.Classes,
   IdSSLOpenSSL,
-  Conversa.WebSocket in 'src\cliente\Conversa.WebSocket.pas';
+  Conversa.WebSocket in 'src\cliente\Conversa.WebSocket.pas',
+  Conversa.Comando in 'src\comum\Conversa.Comando.pas',
+  Conversa.Consulta in 'src\comum\Conversa.Consulta.pas';
 
 var
   WebSocket: TWebSocketClient;
-  sBuff: String;
+  cmdRequisicao: TComando;
+  consulta: TConsulta;
 begin
   WebSocket := TWebSocketClient.Create(nil);
   try
@@ -22,15 +28,60 @@ begin
 
     WebSocket.MethodReceive(
       procedure (W: TWebSocketClient; S: String)
+      var
+        cmdNotificacao: TComando;
       begin
-        Writeln(S);
+        cmdNotificacao := TComando.Create;
+        try
+          cmdNotificacao.Texto := S;
+          Writeln(cmdNotificacao.Texto);
+        finally
+          FreeAndNil(cmdNotificacao);
+        end;
       end
     );
 
     while True do
     begin
-      Readln(sBuff);
-      Writeln(WebSocket.SendWait(sBuff));
+      Readln;
+
+      cmdRequisicao := TComando.Create;
+      try
+        consulta := TConsulta.Create;
+        try
+          cmdRequisicao.Recurso := 'arquivo.tipo';
+          cmdRequisicao.Metodo := 'obter';
+          consulta.EmNumero('id', [1, 2, 3]);
+          consulta.Contem('descricao', '%e%');
+
+          consulta.ParaArray(cmdRequisicao.Dados);
+
+          WriteLn(WebSocket.SendWait(cmdRequisicao.Texto));
+        finally
+          FreeAndNil(consulta);
+        end;
+      finally
+        FreeAndNil(cmdRequisicao);
+      end;
+
+
+      cmdRequisicao := TComando.Create;
+      try
+        consulta := TConsulta.Create;
+        try
+          cmdRequisicao.Recurso := 'mensagem';
+          cmdRequisicao.Metodo := 'remover';
+          consulta.IgualNumero('id', 1);
+
+          consulta.ParaArray(cmdRequisicao.Dados);
+
+          WriteLn(WebSocket.SendWait(cmdRequisicao.Texto));
+        finally
+          FreeAndNil(consulta);
+        end;
+      finally
+        FreeAndNil(cmdRequisicao);
+      end;
     end;
   finally
     FreeAndNil(WebSocket);

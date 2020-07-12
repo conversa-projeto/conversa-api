@@ -1,4 +1,6 @@
-﻿unit Conversa.Dados;
+﻿// Eduardo - 12/07/2020
+
+unit Conversa.Dados;
 
 interface
 
@@ -27,62 +29,26 @@ uses
   FireDAC.DApt,
   FireDAC.Comp.DataSet,
   FireDAC.Comp.Client,
-  Conversa.Comando;
+  IdContext,
+  Conversa.Comando,
+  Conversa.Consulta,
+  Conversa.WebSocket;
 
 type
   TConversaDados = class(TDataModule)
     conMariaDB: TFDConnection;
-    qryUsuario: TFDQuery;
-    qryUsuarioid: TFDAutoIncField;
-    qryUsuarionome: TStringField;
-    qryUsuarioapelido: TStringField;
-    qryUsuarioemail: TStringField;
-    qryUsuariousuario: TStringField;
-    qryUsuariosenha: TStringField;
-    qryMensagemStatus: TFDQuery;
-    qryMensagemStatusid: TFDAutoIncField;
-    qryMensagemStatusdescricao: TStringField;
-    qryMensagemArquivo: TFDQuery;
-    qryMensagemArquivoid: TFDAutoIncField;
-    qryMensagemArquivomensagem_id: TIntegerField;
-    qryMensagemArquivoarquivo_id: TIntegerField;
-    qryMensagem: TFDQuery;
-    qryMensagemid: TFDAutoIncField;
-    qryMensagemconversa_id: TIntegerField;
-    qryMensagemusuario_id: TIntegerField;
-    qryMensagemstatus2: TIntegerField;
-    qryMensagemconfirmacao: TIntegerField;
-    qryMensagemconteudo: TStringField;
-    qryConversaUsuario: TFDQuery;
-    qryConversaUsuarioid: TFDAutoIncField;
-    qryConversaUsuariousuario_id: TIntegerField;
-    qryConversaUsuarioconversa_id: TIntegerField;
-    qryConversaTipo: TFDQuery;
-    qryConversaTipoid: TFDAutoIncField;
-    qryConversaTipodescricao: TStringField;
-    qryConversa: TFDQuery;
-    qryConversaid: TFDAutoIncField;
-    qryConversadescricao: TStringField;
-    qryConversatipo2: TIntegerField;
-    qryContato: TFDQuery;
-    qryContatoid: TFDAutoIncField;
-    qryContatousuario_id: TIntegerField;
-    qryContatocontato_id: TIntegerField;
-    qryArquivoTipo: TFDQuery;
-    qryArquivoTipoid: TFDAutoIncField;
-    qryArquivoTipodescricao: TStringField;
-    qryArquivo: TFDQuery;
-    qryArquivoid: TFDAutoIncField;
-    qryArquivoarquivo: TStringField;
-    qryArquivotipo2: TIntegerField;
-    qryArquivotamanho: TIntegerField;
   private
-    function TabelaParaJSONArray(qry: TFDQuery): TJSONArray;
     function TabelaParaJSONObject(qry: TFDQuery): TJSONObject;
-    function ObterUsuario(iID: Integer): TJSONObject;
+
+    procedure Criar(sTabela: String; jaItems, jaRetorno: TJSONArray);
+    procedure Obter(sConsulta: String; jaRetorno: TJSONArray);
+    procedure Alterar(sConsulta: String; jaItems, jaRetorno: TJSONArray);
+    procedure Remover(sConsulta: String; jaRetorno: TJSONArray);
+    function AbreTabela(sConsulta: String): TFDQuery;
+    procedure NotificaEnvolvidos(const WebSocket: TWebSocketServer; const Contexto: TIdContext; const cmdRequisicao: TComando);
   public
     class procedure CriarDados;
-    procedure ExecutaComando(const cmdRequisicao: TComando; var cmdResposta: TComando);
+    procedure ExecutaComando(const WebSocket: TWebSocketServer; const Contexto: TIdContext; const cmdRequisicao: TComando; var cmdResposta: TComando);
   end;
 
 threadvar
@@ -103,25 +69,74 @@ begin
     ConversaDados := TConversaDados.Create(nil);
 end;
 
-procedure TConversaDados.ExecutaComando(const cmdRequisicao: TComando; var cmdResposta: TComando);
+procedure TConversaDados.ExecutaComando(const WebSocket: TWebSocketServer; const Contexto: TIdContext; const cmdRequisicao: TComando; var cmdResposta: TComando);
+var
+  consulta: TConsulta;
+  sTabela: String;
+  sTexto: String;
 begin
-  if cmdRequisicao.Recurso.Equals('usuario') and cmdRequisicao.Metodo.Equals('obter') then
-  begin
-    if cmdRequisicao.Dados.Count = 0 then
-      raise Exception.Create('Informe o ID do usuário para obte-lo!');
-    cmdResposta.Dados.AddElement(ObterUsuario(StrToInt(cmdRequisicao.Dados.Items[0].Value)));
+  sTabela := cmdRequisicao.Recurso.Replace('.', '_').Replace('/', '_').Replace('\', '_');
+ 
+  case IndexStr(cmdRequisicao.Metodo, ['criar', 'obter', 'alterar', 'remover']) of
+    0: // criar
+    begin
+      Criar(sTabela, cmdRequisicao.Dados, cmdResposta.Dados);
+    end;
+    1: // obter
+    begin
+      consulta := TConsulta.Create(cmdRequisicao.Dados);
+      try
+        sTexto := consulta.Texto;
+        Obter('select * from '+ sTabela +' '+ IfThen(not sTexto.IsEmpty, ' where '+ sTexto), cmdResposta.Dados);
+      finally
+        FreeAndNil(consulta);
+      end;
+    end;
+    2: // alterar
+    begin
+      consulta := TConsulta.Create(TJSONArray(cmdRequisicao.Dados.Items[0]));
+      try
+        sTexto := consulta.Texto;
+        Alterar('select * from '+ sTabela +' '+ IfThen(not sTexto.IsEmpty, ' where '+ sTexto), TJSONArray(cmdRequisicao.Dados.Items[1]), cmdResposta.Dados);
+      finally
+        FreeAndNil(consulta);
+      end;
+    end;
+    3: // remover
+    begin
+      consulta := TConsulta.Create(cmdRequisicao.Dados);
+      try
+        sTexto := consulta.Texto;
+        Remover('select * from '+ sTabela +' '+ IfThen(not sTexto.IsEmpty, ' where '+ sTexto), cmdResposta.Dados);
+      finally
+        FreeAndNil(consulta);
+      end;
+    end;
+  else
+    raise Exception.Create('Metodo: "'+ cmdRequisicao.Metodo +'" inválido!');
   end;
+  
+  // Notificar todos usuários envolvidos quando há alterações nas tabelas compartilhadas
+  if MatchStr(cmdRequisicao.Metodo, ['criar', 'alterar', 'remover']) and
+     MatchStr(sTabela, ['conversa', 'conversa_usuario', 'mensagem', 'mensagem_confirmacao', 'mensagem_status']) then
+    NotificaEnvolvidos(WebSocket, Contexto, cmdResposta)
+  else // Avisa somente o usuário atual
+    WebSocket.Send(Contexto, cmdResposta.Texto);
 end;
 
-function TConversaDados.ObterUsuario(iID: Integer): TJSONObject;
+procedure TConversaDados.NotificaEnvolvidos(const WebSocket: TWebSocketServer; const Contexto: TIdContext; const cmdRequisicao: TComando);
 var
-  sSQL: String;
+  Clients: TList;
+  I: Integer;
 begin
-  sSQL := qryUsuario.SQL.Text;
-  qryUsuario.Open(sSQL +' where id = '+ IntToStr(iID));
-  Result := TabelaParaJSONObject(qryUsuario);
-  qryUsuario.Close;
-  qryUsuario.SQL.Text := sSQL;
+  Clients := WebSocket.Contexts.LockList;
+  try
+    for I := 0 to Pred(Clients.Count) do
+      if TIdContext(Clients[I]).Connection.Connected {obter os usuários envolvidos na alteração} then
+        TWebSocketIOHandlerHelper(TIdContext(Clients[I]).Connection.IOHandler).WriteString(cmdRequisicao.Texto);
+  finally
+    WebSocket.Contexts.UnlockList;
+  end;
 end;
 
 function TConversaDados.TabelaParaJSONObject(qry: TFDQuery): TJSONObject;
@@ -147,14 +162,87 @@ begin
   end;
 end;
 
-function TConversaDados.TabelaParaJSONArray(qry: TFDQuery): TJSONArray;
+function TConversaDados.AbreTabela(sConsulta: String): TFDQuery;
 begin
-  Result := TJSONArray.Create;
-  qry.First;
-  while not qry.Eof do
-  begin
-    Result.AddElement(TabelaParaJSONObject(qry));
-    qry.Next;
+  Result := TFDQuery.Create(nil);
+  try
+    Result.Connection := conMariaDB;
+    Result.Open(sConsulta);    
+  except on E: Exception do
+    begin
+      FreeAndNil(Result);
+      raise Exception.Create(E.Message);
+    end;
+  end;
+end;
+
+procedure TConversaDados.Criar(sTabela: String; jaItems, jaRetorno: TJSONArray);
+begin
+  // fazer a inserção
+end;
+
+procedure TConversaDados.Obter(sConsulta: String; jaRetorno: TJSONArray);
+var
+  qry: TFDQuery;
+begin
+  qry := AbreTabela(sConsulta);
+  try
+    qry.First;
+    while not qry.Eof do
+    begin
+      jaRetorno.AddElement(TabelaParaJSONObject(qry));
+      qry.Next;
+    end;
+  finally
+    FreeAndNil(qry);
+  end;
+end;
+
+procedure TConversaDados.Alterar(sConsulta: String; jaItems, jaRetorno: TJSONArray);
+var
+  qry: TFDQuery;
+begin
+  qry := AbreTabela(sConsulta);
+  try
+    qry.First;
+    while not qry.Eof do
+    begin
+      qry.Edit;
+      // fazer a alteração
+      jaRetorno.AddElement(TabelaParaJSONObject(qry));
+      qry.Next;
+    end;
+    if qry.State = dsEdit then
+    begin
+      qry.Post;
+      qry.ApplyUpdates(0);
+      qry.CommitUpdates;
+    end;
+  finally
+    FreeAndNil(qry);
+  end;
+end;
+
+procedure TConversaDados.Remover(sConsulta: String; jaRetorno: TJSONArray);
+var
+  qry: TFDQuery;
+begin
+  qry := AbreTabela(sConsulta);
+  try
+    qry.First;
+    while not qry.Eof do
+    begin
+      jaRetorno.AddElement(TabelaParaJSONObject(qry));
+      qry.Delete;
+    end;
+    if qry.State = dsEdit then
+    begin
+      qry.Post;
+      qry.ApplyUpdates(0);
+      qry.CommitUpdates;
+    end;
+  finally
+    FreeAndNil(qry);
   end;
 end;
 
