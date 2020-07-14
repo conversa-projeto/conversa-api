@@ -11,7 +11,8 @@ uses
   Conversa.WebSocket in 'src\servidor\Conversa.WebSocket.pas',
   Conversa.Comando in 'src\comum\Conversa.Comando.pas',
   Conversa.Principal in 'src\servidor\Conversa.Principal.pas',
-  Conversa.Consulta in 'src\comum\Conversa.Consulta.pas';
+  Conversa.Consulta in 'src\comum\Conversa.Consulta.pas',
+  Conversa.Insere in 'src\comum\Conversa.Insere.pas';
 
 begin
   IniciarConversa;

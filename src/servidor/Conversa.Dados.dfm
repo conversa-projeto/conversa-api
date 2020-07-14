@@ -8,7 +8,6 @@ object ConversaDados: TConversaDados
       'Password=sql@dev'
       'User_Name=root'
       'DriverID=MySQL')
-    Connected = True
     LoginPrompt = False
     Left = 32
     Top = 32
