@@ -38,8 +38,8 @@ type
   TConversaDados = class(TDataModule)
     conMariaDB: TFDConnection;
   private
+    FContexto: TIdContext;
     function TabelaParaJSONObject(qry: TFDQuery): TJSONObject;
-
     procedure Criar(sTabela: String; jaItems, jaRetorno: TJSONArray);
     procedure Obter(sConsulta: String; jaRetorno: TJSONArray);
     procedure Alterar(sConsulta: String; jaItems, jaRetorno: TJSONArray);
@@ -47,12 +47,10 @@ type
     function AbreTabela(sConsulta: String): TFDQuery;
     procedure NotificaEnvolvidos(const WebSocket: TWebSocketServer; const Contexto: TIdContext; const cmdRequisicao: TComando);
   public
-    class procedure CriarDados;
-    procedure ExecutaComando(const WebSocket: TWebSocketServer; const Contexto: TIdContext; const cmdRequisicao: TComando; var cmdResposta: TComando);
+    class function Dados(const Contexto: TIdContext): TConversaDados;
+    procedure Redireciona(const WebSocket: TWebSocketServer; const cmdRequisicao: TComando; var cmdResposta: TComando);
+    procedure ExecutaComando(const WebSocket: TWebSocketServer; const cmdRequisicao: TComando; var cmdResposta: TComando);
   end;
-
-threadvar
-  ConversaDados: TConversaDados;
 
 implementation
 
@@ -63,13 +61,27 @@ implementation
 uses
   System.StrUtils;
 
-class procedure TConversaDados.CriarDados;
+class function TConversaDados.Dados(const Contexto: TIdContext): TConversaDados;
 begin
-  if not Assigned(ConversaDados) then
-    ConversaDados := TConversaDados.Create(nil);
+  if not Assigned(Contexto.Data) then
+    Contexto.Data := TConversaDados.Create(nil);
+  Result := TConversaDados(Contexto.Data);
+  Result.FContexto := Contexto;
 end;
 
-procedure TConversaDados.ExecutaComando(const WebSocket: TWebSocketServer; const Contexto: TIdContext; const cmdRequisicao: TComando; var cmdResposta: TComando);
+procedure TConversaDados.Redireciona(const WebSocket: TWebSocketServer; const cmdRequisicao: TComando; var cmdResposta: TComando);
+begin
+  if cmdRequisicao.Recurso.Equals('acesso') and cmdRequisicao.Metodo.Equals('obter') then
+  begin
+    cmdResposta.Dados.Add('chave_acesso');
+    // Retorna o acesso ao usuario atual
+    WebSocket.Send(FContexto, cmdResposta.Texto);
+  end
+  else
+    ExecutaComando(WebSocket, cmdRequisicao, cmdResposta);
+end;
+
+procedure TConversaDados.ExecutaComando(const WebSocket: TWebSocketServer; const cmdRequisicao: TComando; var cmdResposta: TComando);
 var
   consulta: TConsulta;
   sTabela: String;
@@ -119,9 +131,9 @@ begin
   // Notificar todos usuários envolvidos quando há alterações nas tabelas compartilhadas
   if MatchStr(cmdRequisicao.Metodo, ['criar', 'alterar', 'remover']) and
      MatchStr(sTabela, ['conversa', 'conversa_usuario', 'mensagem', 'mensagem_confirmacao', 'mensagem_status']) then
-    NotificaEnvolvidos(WebSocket, Contexto, cmdResposta)
+    NotificaEnvolvidos(WebSocket, FContexto, cmdResposta)
   else // Avisa somente o usuário atual
-    WebSocket.Send(Contexto, cmdResposta.Texto);
+    WebSocket.Send(FContexto, cmdResposta.Texto);
 end;
 
 procedure TConversaDados.NotificaEnvolvidos(const WebSocket: TWebSocketServer; const Contexto: TIdContext; const cmdRequisicao: TComando);

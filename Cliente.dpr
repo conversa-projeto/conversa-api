@@ -41,6 +41,16 @@ begin
       end
     );
 
+    // Autenticação
+    cmdRequisicao := TComando.Create;
+    try
+      cmdRequisicao.Recurso := 'acesso';
+      cmdRequisicao.Metodo := 'obter';
+      WriteLn(WebSocket.SendWait(cmdRequisicao.Texto));
+    finally
+      FreeAndNil(cmdRequisicao);
+    end;
+
     while True do
     begin
       Readln;
@@ -51,6 +61,7 @@ begin
         try
           cmdRequisicao.Recurso := 'arquivo.tipo';
           cmdRequisicao.Metodo := 'obter';
+
           consulta.EmNumero('id', [1, 2, 3]);
           consulta.Contem('descricao', '%e%');
 
@@ -64,13 +75,13 @@ begin
         FreeAndNil(cmdRequisicao);
       end;
 
-
       cmdRequisicao := TComando.Create;
       try
         consulta := TConsulta.Create;
         try
           cmdRequisicao.Recurso := 'mensagem';
           cmdRequisicao.Metodo := 'remover';
+
           consulta.IgualNumero('id', 1);
 
           consulta.ParaArray(cmdRequisicao.Dados);

@@ -33,8 +33,11 @@ type
     procedure ReceiveText(AContext: TIdContext);
   protected
     FPort: Integer;
-    FMethodReceive: TProc<TIdContext, String>;
+    FMetodoReceber: TProc<TIdContext, String>;
+    FMetodoConectar: TProc<TIdContext>;
+    FMetodoDesconectar: TProc<TIdContext>;
     procedure DoConnect(AContext: TIdContext); override;
+    procedure DoDisconnect(AContext: TIdContext); override;
     function DoExecute(AContext: TIdContext): Boolean; override;
   public
     procedure InitSSL(AIdServerIOHandlerSSLOpenSSL: TIdServerIOHandlerSSLOpenSSL);
@@ -43,10 +46,12 @@ type
     destructor Destroy; override;
     function Port(P: Integer): TWebSocketServer; overload;
     function Port: Integer; overload;
-    function MethodReceive(M: TProc<TIdContext, String>): TWebSocketServer; overload;
-    function MethodReceive: TProc<TIdContext, String>; overload;
+    function AoReceber(M: TProc<TIdContext, String>): TWebSocketServer; overload;
+    function AoReceber: TProc<TIdContext, String>; overload;
     function SendAll(sData: String): TWebSocketServer;
     function Send(Context: TIdContext; sData: String): TWebSocketServer;
+    function AoConectar(pConectar: TProc<TIdContext>): TWebSocketServer;
+    function AoDesconectar(pDesconectar: TProc<TIdContext>): TWebSocketServer;
     function Stop: TWebSocketServer;
     function Start: TWebSocketServer;
   end;
@@ -68,6 +73,18 @@ uses
   System.Classes;
 
 { TWebSocketServer }
+
+function TWebSocketServer.AoConectar(pConectar: TProc<TIdContext>): TWebSocketServer;
+begin
+  Result := Self;
+  FMetodoConectar := pConectar;
+end;
+
+function TWebSocketServer.AoDesconectar(pDesconectar: TProc<TIdContext>): TWebSocketServer;
+begin
+  Result := Self;
+  FMetodoDesconectar := pDesconectar;
+end;
 
 constructor TWebSocketServer.Create;
 begin
@@ -98,15 +115,15 @@ begin
     Active := true;
 end;
 
-function TWebSocketServer.MethodReceive(M: TProc<TIdContext, String>): TWebSocketServer;
+function TWebSocketServer.AoReceber(M: TProc<TIdContext, String>): TWebSocketServer;
 begin
   Result := Self;
-  FMethodReceive := M;
+  FMetodoReceber := M;
 end;
 
-function TWebSocketServer.MethodReceive: TProc<TIdContext, String>;
+function TWebSocketServer.AoReceber: TProc<TIdContext, String>;
 begin
-  Result := FMethodReceive;
+  Result := FMetodoReceber;
 end;
 
 function TWebSocketServer.Port: Integer;
@@ -128,6 +145,16 @@ begin
   // Mark connection as "not handshaked"
   AContext.Connection.IOHandler.Tag := -1;
   inherited;
+
+  if Assigned(FMetodoConectar) then
+    FMetodoConectar(AContext);
+end;
+
+procedure TWebSocketServer.DoDisconnect(AContext: TIdContext);
+begin
+  inherited;
+  if Assigned(FMetodoDesconectar) then
+    FMetodoDesconectar(AContext);
 end;
 
 function TWebSocketServer.DoExecute(AContext: TIdContext): Boolean;
@@ -253,8 +280,8 @@ begin
   if Assigned(Self.lSyncFunctionTrigger) and Self.lSyncFunctionTrigger(msg) then
     Self.lSyncFunctionEvent.SetEvent
   else
-  if Assigned(FMethodReceive) then
-    FMethodReceive(AContext, msg);
+  if Assigned(FMetodoReceber) then
+    FMetodoReceber(AContext, msg);
 end;
 
 { TWebSocketIOHandlerHelper }

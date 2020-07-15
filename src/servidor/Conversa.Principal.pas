@@ -25,7 +25,7 @@ var
 begin
   WebSocket := TWebSocketServer.Create;
   try
-    WebSocket.MethodReceive(
+    WebSocket.AoReceber(
       procedure(Contexto: TIdContext; sTexto: String)
       var
         cmdRequisicao: TComando;
@@ -39,10 +39,8 @@ begin
             // Cria a resposta com cabeçalho da requisição
             cmdResposta := TComando.Create(cmdRequisicao);
 
-            // Cria o modulo de dados e executa a requicição obtendo a resposta
-            TConversaDados.CriarDados;
-
-            ConversaDados.ExecutaComando(WebSocket, Contexto, cmdRequisicao, cmdResposta);
+            // Cria modulo, retorna e executa comando
+            TConversaDados.Dados(Contexto).Redireciona(WebSocket, cmdRequisicao, cmdResposta);
           except on E: Exception do
             begin
               cmdResposta.Erro.Classe   := E.ClassName;

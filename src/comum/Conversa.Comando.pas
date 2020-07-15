@@ -59,14 +59,17 @@ type
     FjaDados: TJSONArray;
     FRecurso: String;
     FMetodo: String;
+    FResposta: Boolean;
     function GetTexto: String;
     procedure SetTexto(const Valor: String);
     function GetDados: TJSONArray;
+    procedure SetRecurso(const Value: String);
+    procedure SetMetodo(const Value: String);
   public
     Erro: TErro;
     property Texto: String read GetTexto write SetTexto;
-    property Recurso: String read FRecurso write FRecurso;
-    property Metodo: String read FMetodo write FMetodo;
+    property Recurso: String read FRecurso write SetRecurso;
+    property Metodo: String read FMetodo write SetMetodo;
     property Dados: TJSONArray read GetDados;
     constructor Create(sTexto: String = ''); overload;
     constructor Create(Clone: TComando); overload;
@@ -79,6 +82,7 @@ implementation
 
 constructor TComando.Create(sTexto: String = '');
 begin
+  FResposta := False;
   if not sTexto.IsEmpty then
     SetTexto(sTexto);
 end;
@@ -86,7 +90,8 @@ end;
 constructor TComando.Create(Clone: TComando);
 begin
   Self.Recurso := Clone.Recurso;
-  Self.Metodo  := Clone.Metodo;
+  Self.Metodo := Clone.Metodo;
+  FResposta := True;
 end;
 
 destructor TComando.Destroy;
@@ -113,7 +118,7 @@ begin
     joComando.AddPair('metodo',  FMetodo);
 
     if Erro.Classe.IsEmpty and Erro.Mensagem.IsEmpty then
-      joComando.AddPair('dados', TJSONArray(FjaDados.Clone))
+      joComando.AddPair('dados', TJSONArray(GetDados.Clone))
     else
       joComando.AddPair('erro',
         TJSONObject.Create
@@ -125,6 +130,20 @@ begin
   finally
     FreeAndNil(joComando);
   end;
+end;
+
+procedure TComando.SetRecurso(const Value: String);
+begin
+  if FResposta then
+    raise Exception.Create('Alteração de recurso não disponível na resposta!');
+  FRecurso := Value;
+end;
+
+procedure TComando.SetMetodo(const Value: String);
+begin
+  if FResposta then
+    raise Exception.Create('Alteração de metodo não disponível na resposta!');
+  FMetodo := Value;
 end;
 
 procedure TComando.SetTexto(const Valor: String);
