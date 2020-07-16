@@ -32,6 +32,7 @@ uses
   IdContext,
   Conversa.Comando,
   Conversa.Consulta,
+  Conversa.Insere,
   Conversa.WebSocket;
 
 type
@@ -39,15 +40,18 @@ type
     conMariaDB: TFDConnection;
   private
     FContexto: TIdContext;
+    FAutenticado: Boolean;
     function TabelaParaJSONObject(qry: TFDQuery): TJSONObject;
-    procedure Criar(sTabela: String; jaItems, jaRetorno: TJSONArray);
+    procedure Criar(jaItems, jaRetorno: TJSONArray);
     procedure Obter(sConsulta: String; jaRetorno: TJSONArray);
     procedure Alterar(sConsulta: String; jaItems, jaRetorno: TJSONArray);
     procedure Remover(sConsulta: String; jaRetorno: TJSONArray);
     function AbreTabela(sConsulta: String): TFDQuery;
     procedure NotificaEnvolvidos(const WebSocket: TWebSocketServer; const Contexto: TIdContext; const cmdRequisicao: TComando);
+    function Autentica(cmdRequisicao: TComando): TJSONObject;
   public
     class function Dados(const Contexto: TIdContext): TConversaDados;
+    constructor Create(AOwner: TComponent); override;
     procedure Redireciona(const WebSocket: TWebSocketServer; const cmdRequisicao: TComando; var cmdResposta: TComando);
     procedure ExecutaComando(const WebSocket: TWebSocketServer; const cmdRequisicao: TComando; var cmdResposta: TComando);
   end;
@@ -69,16 +73,67 @@ begin
   Result.FContexto := Contexto;
 end;
 
+constructor TConversaDados.Create(AOwner: TComponent);
+begin
+  inherited;
+  FAutenticado := False;
+end;
+
 procedure TConversaDados.Redireciona(const WebSocket: TWebSocketServer; const cmdRequisicao: TComando; var cmdResposta: TComando);
 begin
-  if cmdRequisicao.Recurso.Equals('acesso') and cmdRequisicao.Metodo.Equals('obter') then
-  begin
-    cmdResposta.Dados.Add('chave_acesso');
-    // Retorna o acesso ao usuario atual
-    WebSocket.Send(FContexto, cmdResposta.Texto);
-  end
+  if FAutenticado then
+    ExecutaComando(WebSocket, cmdRequisicao, cmdResposta)
   else
-    ExecutaComando(WebSocket, cmdRequisicao, cmdResposta);
+  begin
+    cmdResposta.Dados.AddElement(Autentica(cmdRequisicao));
+    WebSocket.Send(FContexto, cmdResposta.Texto);
+  end;
+end;
+
+function TConversaDados.Autentica(cmdRequisicao: TComando): TJSONObject;
+var
+  joAutenticacao: TJSONObject;
+  jaUsuario: TJSONArray;
+begin
+  Result := TJSONObject.Create;
+
+  if not cmdRequisicao.Recurso.Equals('autenticacao') and not cmdRequisicao.Metodo.Equals('obter') then
+  begin
+    Result.AddPair('autenticado', TJSONBool.Create(False)).AddPair('motivo', 'Recurso "autenticacao" com metodo "obter" não foi solicitado!');
+    Exit;
+  end;
+
+  joAutenticacao := nil;
+
+  if cmdRequisicao.Dados.Count > 0 then
+    if cmdRequisicao.Dados.Items[0] is TJSONObject then
+      joAutenticacao := TJSONObject(cmdRequisicao.Dados.Items[0]);
+
+  if not Assigned(joAutenticacao) or
+     not Assigned(joAutenticacao.FindValue('usuario')) or
+     not Assigned(joAutenticacao.FindValue('senha')) then
+  begin
+    Result.AddPair('autenticado', TJSONBool.Create(False)).AddPair('motivo', 'Parâmetros "usuario" ou "senha" não informados!');
+    Exit;
+  end;
+
+  jaUsuario := TJSONArray.Create;
+  try
+    Obter(
+      'select id '+
+      '  from usuario '+
+      ' where usuario = '+ QuotedStr(joAutenticacao.GetValue('usuario').Value) +
+      '   and senha = '+ QuotedStr(joAutenticacao.GetValue('senha').Value),
+      jaUsuario
+    );
+    FAutenticado := jaUsuario.Count = 1;
+    if FAutenticado then
+      Result.AddPair('autenticado', TJSONBool.Create(True))
+    else
+      Result.AddPair('autenticado', TJSONBool.Create(False)).AddPair('motivo', 'Parâmetros "usuario" ou "senha" incorretos!');
+  finally
+    FreeAndNil(jaUsuario);
+  end;
 end;
 
 procedure TConversaDados.ExecutaComando(const WebSocket: TWebSocketServer; const cmdRequisicao: TComando; var cmdResposta: TComando);
@@ -92,7 +147,7 @@ begin
   case IndexStr(cmdRequisicao.Metodo, ['criar', 'obter', 'alterar', 'remover']) of
     0: // criar
     begin
-      Criar(sTabela, cmdRequisicao.Dados, cmdResposta.Dados);
+      Criar(cmdRequisicao.Dados, cmdResposta.Dados);
     end;
     1: // obter
     begin
@@ -188,9 +243,14 @@ begin
   end;
 end;
 
-procedure TConversaDados.Criar(sTabela: String; jaItems, jaRetorno: TJSONArray);
+procedure TConversaDados.Criar(jaItems, jaRetorno: TJSONArray);
 begin
-  // fazer a inserção
+  with TInsere.Create(jaItems, conMariaDB) do
+  try
+    Executar(jaRetorno);
+  finally
+    Free;
+  end;
 end;
 
 procedure TConversaDados.Obter(sConsulta: String; jaRetorno: TJSONArray);
