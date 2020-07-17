@@ -41,13 +41,14 @@ type
   private
     FContexto: TIdContext;
     FAutenticado: Boolean;
+    FUsuario: Int64;
     function TabelaParaJSONObject(qry: TFDQuery): TJSONObject;
     procedure Criar(jaItems, jaRetorno: TJSONArray);
     procedure Obter(sConsulta: String; jaRetorno: TJSONArray);
     procedure Alterar(sConsulta: String; jaItems, jaRetorno: TJSONArray);
     procedure Remover(sConsulta: String; jaRetorno: TJSONArray);
     function AbreTabela(sConsulta: String): TFDQuery;
-    procedure NotificaEnvolvidos(const WebSocket: TWebSocketServer; const Contexto: TIdContext; const cmdRequisicao: TComando);
+    procedure NotificaEnvolvidos(const WebSocket: TWebSocketServer; const Contexto: TIdContext; const cmdResposta: TComando; const sTabela: String);
     function Autentica(cmdRequisicao: TComando): TJSONObject;
   public
     class function Dados(const Contexto: TIdContext): TConversaDados;
@@ -55,6 +56,9 @@ type
     procedure Redireciona(const WebSocket: TWebSocketServer; const cmdRequisicao: TComando; var cmdResposta: TComando);
     procedure ExecutaComando(const WebSocket: TWebSocketServer; const cmdRequisicao: TComando; var cmdResposta: TComando);
   end;
+
+const
+  sl = sLineBreak;
 
 implementation
 
@@ -128,7 +132,10 @@ begin
     );
     FAutenticado := jaUsuario.Count = 1;
     if FAutenticado then
-      Result.AddPair('autenticado', TJSONBool.Create(True))
+    begin
+      Result.AddPair('autenticado', TJSONBool.Create(True));
+      FUsuario := TJSONNumber(TJSONObject(jaUsuario.Items[0]).GetValue('id')).AsInt64;
+    end
     else
       Result.AddPair('autenticado', TJSONBool.Create(False)).AddPair('motivo', 'Parâmetros "usuario" ou "senha" incorretos!');
   finally
@@ -186,21 +193,113 @@ begin
   // Notificar todos usuários envolvidos quando há alterações nas tabelas compartilhadas
   if MatchStr(cmdRequisicao.Metodo, ['criar', 'alterar', 'remover']) and
      MatchStr(sTabela, ['conversa', 'conversa_usuario', 'mensagem', 'mensagem_confirmacao', 'mensagem_status']) then
-    NotificaEnvolvidos(WebSocket, FContexto, cmdResposta)
+    NotificaEnvolvidos(WebSocket, FContexto, cmdResposta, sTabela)
   else // Avisa somente o usuário atual
     WebSocket.Send(FContexto, cmdResposta.Texto);
 end;
 
-procedure TConversaDados.NotificaEnvolvidos(const WebSocket: TWebSocketServer; const Contexto: TIdContext; const cmdRequisicao: TComando);
+procedure TConversaDados.NotificaEnvolvidos(const WebSocket: TWebSocketServer; const Contexto: TIdContext; const cmdResposta: TComando; const sTabela: String);
 var
   Clients: TList;
   I: Integer;
+  aEnvolvidos: TArray<Int64>;
+
+  function ObtemEnvolvidos: TArray<Int64>;
+  var
+    jaEnvolvidos: TJSONArray;
+    jvItem: TJSONValue;
+    sID: String;
+  begin
+    jaEnvolvidos := TJSONArray.Create;
+    try
+      sID := '1'; // verificar como obter da resposta
+
+      case IndexStr(sTabela, ['conversa', 'conversa_usuario', 'mensagem', 'mensagem_confirmacao', 'mensagem_status']) of
+        0:
+        Obter(
+          sl +'select usuario_id '+
+          sl +'  from conversa '+
+          sl +' inner '+
+          sl +'  join conversa_usuario '+
+          sl +'    on conversa_usuario.conversa_id = conversa.id '+
+          sl +' where conversa.id = '+ sID,
+          jaEnvolvidos
+        );
+        1:
+        Obter(
+          sl +'select usuario_conversa.usuario_id '+
+          sl +'  from conversa_usuario '+
+          sl +' inner '+
+          sl +'  join conversa_usuario as usuario_conversa '+
+          sl +'    on usuario_conversa.conversa_id = conversa_usuario.conversa_id '+
+          sl +' where conversa_usuario.id = '+ sID,
+          jaEnvolvidos
+        );
+        2:
+        Obter(
+          sl +'select conversa_usuario.usuario_id '+
+          sl +'  from mensagem '+
+          sl +' inner '+
+          sl +'  join conversa_usuario '+
+          sl +'    on conversa_usuario.conversa_id = mensagem.conversa_id '+
+          sl +' where mensagem.id = '+ sID,
+          jaEnvolvidos
+        );
+        3:
+        Obter(
+          sl +'select conversa_usuario.usuario_id '+
+          sl +'  from mensagem_confirmacao '+
+          sl +' inner '+
+          sl +'  join mensagem '+
+          sl +'    on mensagem.id = mensagem_confirmacao.mensagem_id '+
+          sl +' inner '+
+          sl +'  join conversa_usuario '+
+          sl +'    on conversa_usuario.conversa_id = mensagem.conversa_id '+
+          sl +' where mensagem_confirmacao.id = '+ sID,
+          jaEnvolvidos
+        );
+        4:
+        Obter(
+          sl +'select conversa_usuario.usuario_id '+
+          sl +'  from mensagem_status '+
+          sl +' inner '+
+          sl +'  join mensagem '+
+          sl +'    on mensagem.id = mensagem_status.mensagem_id '+
+          sl +' inner '+
+          sl +'  join conversa_usuario '+
+          sl +'    on conversa_usuario.conversa_id = mensagem.conversa_id '+
+          sl +' where mensagem_status.id = '+ sID,
+          jaEnvolvidos
+        );
+      end;
+
+      for jvItem in jaEnvolvidos do
+      begin
+        SetLength(Result, Succ(Length(Result)));
+        Result[Pred(Length(Result))] := TJSONNumber(TJSONObject(jvItem).GetValue('usuario_id')).AsInt64;
+      end;
+    finally
+      FreeAndNil(jaEnvolvidos);
+    end;
+  end;
+
+  function EstaEnvolvido(id: Int64): Boolean;
+  var
+    iTemp: Int64;
+  begin
+    Result := False;
+    for iTemp in aEnvolvidos do
+      if iTemp = id then
+        Exit(True);
+  end;
 begin
+  aEnvolvidos := ObtemEnvolvidos;
+
   Clients := WebSocket.Contexts.LockList;
   try
     for I := 0 to Pred(Clients.Count) do
-      if TIdContext(Clients[I]).Connection.Connected {obter os usuários envolvidos na alteração} then
-        TWebSocketIOHandlerHelper(TIdContext(Clients[I]).Connection.IOHandler).WriteString(cmdRequisicao.Texto);
+      if TIdContext(Clients[I]).Connection.Connected and EstaEnvolvido(TConversaDados(TIdContext(Clients[I]).Data).FUsuario) then
+        TWebSocketIOHandlerHelper(TIdContext(Clients[I]).Connection.IOHandler).WriteString(cmdResposta.Texto);
   finally
     WebSocket.Contexts.UnlockList;
   end;
