@@ -109,6 +109,18 @@
         <DCCReference Include="src\servidor\Conversa.Principal.pas"/>
         <DCCReference Include="src\comum\Conversa.Consulta.pas"/>
         <DCCReference Include="src\comum\Conversa.Insere.pas"/>
+        <DCCReference Include="src\servidor\Conversa.Base.pas"/>
+        <DCCReference Include="src\servidor\Conversa.Perfil.pas"/>
+        <DCCReference Include="src\servidor\Conversa.Usuario.pas"/>
+        <DCCReference Include="src\servidor\Conversa.Contato.pas"/>
+        <DCCReference Include="src\servidor\Conversa.MensagemEventoTipo.pas"/>
+        <DCCReference Include="src\servidor\Conversa.AnexoTipo.pas"/>
+        <DCCReference Include="src\servidor\Conversa.ConversaTipo.pas"/>
+        <DCCReference Include="src\servidor\Conversa.Conversa.pas"/>
+        <DCCReference Include="src\servidor\Conversa.ConversaUsuario.pas"/>
+        <DCCReference Include="src\servidor\Conversa.Mensagem.pas"/>
+        <DCCReference Include="src\servidor\Conversa.MensagemEvento.pas"/>
+        <DCCReference Include="src\servidor\Conversa.MensagemAnexo.pas"/>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>

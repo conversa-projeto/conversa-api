@@ -46,7 +46,6 @@ begin
     cmdRequisicao := TComando.Create;
     try
       cmdRequisicao.Recurso := 'autenticacao';
-      cmdRequisicao.Metodo := 'obter';
       cmdRequisicao.Dados.AddElement(
         TJSONObject.Create
           .AddPair('usuario', 'eduardo')
@@ -61,18 +60,78 @@ begin
     begin
       Readln;
 
+      {$Region' Incluir perfil '}
+//      cmdRequisicao := TComando.Create;
+//      try
+//        cmdRequisicao.Recurso := 'perfil.incluir';
+//        cmdRequisicao.Dados
+//          .AddElement(TJSONObject.Create
+//            .AddPair('descricao', 'Desenvolvedor')
+//        );
+//        WriteLn(WebSocket.SendWait(cmdRequisicao.Texto));
+//      finally
+//        FreeAndNil(cmdRequisicao);
+//      end;
+//
+//      cmdRequisicao := TComando.Create;
+//      try
+//        cmdRequisicao.Recurso := 'perfil.incluir';
+//        cmdRequisicao.Dados
+//          .AddElement(TJSONObject.Create
+//            .AddPair('descricao', 'Administrador')
+//        );
+//        WriteLn(WebSocket.SendWait(cmdRequisicao.Texto));
+//      finally
+//        FreeAndNil(cmdRequisicao);
+//      end;
+//
+//      cmdRequisicao := TComando.Create;
+//      try
+//        cmdRequisicao.Recurso := 'perfil.incluir';
+//        cmdRequisicao.Dados
+//          .AddElement(TJSONObject.Create
+//            .AddPair('descricao', 'Usuario')
+//        );
+//        WriteLn(WebSocket.SendWait(cmdRequisicao.Texto));
+//      finally
+//        FreeAndNil(cmdRequisicao);
+//      end;
+//
+//      cmdRequisicao := TComando.Create;
+//      try
+//        cmdRequisicao.Recurso := 'perfil.incluir';
+//        cmdRequisicao.Dados
+//          .AddElement(TJSONObject.Create
+//            .AddPair('descricao', 'Colaborador')
+//        );
+//        WriteLn(WebSocket.SendWait(cmdRequisicao.Texto));
+//      finally
+//        FreeAndNil(cmdRequisicao);
+//      end;
+      {$EndRegion}
+
+      {$Region' Obter '}
+//      cmdRequisicao := TComando.Create;
+//      try
+//        consulta := TConsulta.Create;
+//        try
+//          cmdRequisicao.Recurso := 'perfil.obter';
+//          consulta.EmNumero('id', [1, 2, 3]);
+//          consulta.Contem('descricao', '%a%');
+//          consulta.ParaArray(cmdRequisicao.Dados);
+//          WriteLn(WebSocket.SendWait(cmdRequisicao.Texto));
+//        finally
+//          FreeAndNil(consulta);
+//        end;
+//      finally
+//        FreeAndNil(cmdRequisicao);
+//      end;
+
       cmdRequisicao := TComando.Create;
       try
         consulta := TConsulta.Create;
         try
-          cmdRequisicao.Recurso := 'arquivo.tipo';
-          cmdRequisicao.Metodo := 'obter';
-
-          consulta.EmNumero('id', [1, 2, 3]);
-          consulta.Contem('descricao', '%e%');
-
-          consulta.ParaArray(cmdRequisicao.Dados);
-
+          cmdRequisicao.Recurso := 'perfil.obter';
           WriteLn(WebSocket.SendWait(cmdRequisicao.Texto));
         finally
           FreeAndNil(consulta);
@@ -80,23 +139,34 @@ begin
       finally
         FreeAndNil(cmdRequisicao);
       end;
+      {$EndRegion}
 
-      cmdRequisicao := TComando.Create;
-      try
-        consulta := TConsulta.Create;
-        try
-          cmdRequisicao.Recurso := 'mensagem';
-          cmdRequisicao.Metodo := 'remover';
-          consulta.IgualNumero('id', 1);
-          consulta.ParaArray(cmdRequisicao.Dados);
-          WriteLn(WebSocket.SendWait(cmdRequisicao.Texto));
-        finally
-          FreeAndNil(consulta);
-        end;
-      finally
-        FreeAndNil(cmdRequisicao);
-      end;
+      {$Region' Alterar '}
+//      cmdRequisicao := TComando.Create;
+//      try
+//        cmdRequisicao.Recurso := 'perfil.alterar';
+//        cmdRequisicao.Dados
+//          .AddElement(
+//            TJSONObject.Create
+//              .AddPair('id', TJSONNumber.Create(2))
+//              .AddPair('descricao', 'Desenvolvedor I')
+//        );
+//        WriteLn(WebSocket.SendWait(cmdRequisicao.Texto));
+//      finally
+//        FreeAndNil(cmdRequisicao);
+//      end;
+      {$EndRegion}
 
+      {$Region' Excluir '}
+//      cmdRequisicao := TComando.Create;
+//      try
+//        cmdRequisicao.Recurso := 'perfil.excluir';
+//        cmdRequisicao.Dados.AddElement(TJSONObject.Create.AddPair('id', TJSONNumber.Create(1)));
+//        WriteLn(WebSocket.SendWait(cmdRequisicao.Texto));
+//      finally
+//        FreeAndNil(cmdRequisicao);
+//      end;
+      {$EndRegion}
     end;
   finally
     FreeAndNil(WebSocket);

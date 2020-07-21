@@ -1,7 +1,7 @@
 object ConversaDados: TConversaDados
   OldCreateOrder = False
-  Height = 105
-  Width = 98
+  Height = 107
+  Width = 167
   object conMariaDB: TFDConnection
     Params.Strings = (
       'Database=conversa'
@@ -10,6 +10,11 @@ object ConversaDados: TConversaDados
       'DriverID=MySQL')
     LoginPrompt = False
     Left = 32
+    Top = 32
+  end
+  object qryMariaDB: TFDQuery
+    Connection = conMariaDB
+    Left = 104
     Top = 32
   end
 end

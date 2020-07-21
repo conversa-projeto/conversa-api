@@ -39,7 +39,7 @@ begin
             // Cria a resposta com cabeçalho da requisição
             cmdResposta := TComando.Create(cmdRequisicao);
 
-            // Cria modulo, retorna e executa comando
+            // Cria modulo de dados, retorna e executa comando
             TConversaDados.Dados(Contexto).Redireciona(WebSocket, cmdRequisicao, cmdResposta);
           except on E: Exception do
             begin

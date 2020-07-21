@@ -58,18 +58,15 @@ type
   private
     FjaDados: TJSONArray;
     FRecurso: String;
-    FMetodo: String;
     FResposta: Boolean;
     function GetTexto: String;
     procedure SetTexto(const Valor: String);
     function GetDados: TJSONArray;
     procedure SetRecurso(const Value: String);
-    procedure SetMetodo(const Value: String);
   public
     Erro: TErro;
     property Texto: String read GetTexto write SetTexto;
     property Recurso: String read FRecurso write SetRecurso;
-    property Metodo: String read FMetodo write SetMetodo;
     property Dados: TJSONArray read GetDados;
     constructor Create(sTexto: String = ''); overload;
     constructor Create(Clone: TComando); overload;
@@ -90,7 +87,6 @@ end;
 constructor TComando.Create(Clone: TComando);
 begin
   Self.Recurso := Clone.Recurso;
-  Self.Metodo := Clone.Metodo;
   FResposta := True;
 end;
 
@@ -115,7 +111,6 @@ begin
   joComando := TJSONObject.Create;
   try
     joComando.AddPair('recurso', FRecurso);
-    joComando.AddPair('metodo',  FMetodo);
 
     if Erro.Classe.IsEmpty and Erro.Mensagem.IsEmpty then
       joComando.AddPair('dados', TJSONArray(GetDados.Clone))
@@ -139,13 +134,6 @@ begin
   FRecurso := Value;
 end;
 
-procedure TComando.SetMetodo(const Value: String);
-begin
-  if FResposta then
-    raise Exception.Create('Alteração de metodo não disponível na resposta!');
-  FMetodo := Value;
-end;
-
 procedure TComando.SetTexto(const Valor: String);
 var
   oComando: TJSONObject;
@@ -158,9 +146,6 @@ begin
     try
       if not Assigned(oComando.GetValue('recurso')) then
         raise Exception.Create('Erro ao obter o recurso!');
-
-      if not Assigned(oComando.GetValue('metodo')) then
-        raise Exception.Create('Erro ao obter o metodo!');
     except on E: Exception do
       begin
         if Assigned(oComando) then
@@ -169,7 +154,6 @@ begin
     end;
 
     FRecurso := oComando.GetValue('recurso').Value;
-    FMetodo := oComando.GetValue('metodo').Value;
 
     if Assigned(FjaDados) then
       FreeAndNil(FjaDados);

@@ -9,6 +9,7 @@ uses
   System.Classes,
   System.JSON,
   System.DateUtils,
+  System.StrUtils,
   System.Generics.Collections,
   Data.DB,
   FireDAC.Stan.Intf,
@@ -38,16 +39,11 @@ uses
 type
   TConversaDados = class(TDataModule)
     conMariaDB: TFDConnection;
+    qryMariaDB: TFDQuery;
   private
     FContexto: TIdContext;
     FAutenticado: Boolean;
     FUsuario: Int64;
-    function TabelaParaJSONObject(qry: TFDQuery): TJSONObject;
-    procedure Criar(jaItems, jaRetorno: TJSONArray);
-    procedure Obter(sConsulta: String; jaRetorno: TJSONArray);
-    procedure Alterar(sConsulta: String; jaItems, jaRetorno: TJSONArray);
-    procedure Remover(sConsulta: String; jaRetorno: TJSONArray);
-    function AbreTabela(sConsulta: String): TFDQuery;
     procedure NotificaEnvolvidos(const WebSocket: TWebSocketServer; const Contexto: TIdContext; const cmdResposta: TComando; const sTabela: String);
     function Autentica(cmdRequisicao: TComando): TJSONObject;
   public
@@ -67,7 +63,17 @@ implementation
 {$R *.dfm}
 
 uses
-  System.StrUtils;
+  Conversa.Perfil,
+  Conversa.Usuario,
+  Conversa.Contato,
+  Conversa.MensagemEventoTipo,
+  Conversa.AnexoTipo,
+  Conversa.ConversaTipo,
+  Conversa.Conversa,
+  Conversa.ConversaUsuario,
+  Conversa.Mensagem,
+  Conversa.MensagemEvento,
+  Conversa.MensagemAnexo;
 
 class function TConversaDados.Dados(const Contexto: TIdContext): TConversaDados;
 begin
@@ -101,7 +107,7 @@ var
 begin
   Result := TJSONObject.Create;
 
-  if not cmdRequisicao.Recurso.Equals('autenticacao') and not cmdRequisicao.Metodo.Equals('obter') then
+  if not cmdRequisicao.Recurso.Equals('autenticacao') then
   begin
     Result.AddPair('autenticado', TJSONBool.Create(False)).AddPair('motivo', 'Recurso "autenticacao" com metodo "obter" não foi solicitado!');
     Exit;
@@ -123,19 +129,12 @@ begin
 
   jaUsuario := TJSONArray.Create;
   try
-    Obter(
-      'select id '+
-      '  from usuario '+
-      ' where usuario = '+ QuotedStr(joAutenticacao.GetValue('usuario').Value) +
-      '   and senha = '+ QuotedStr(joAutenticacao.GetValue('senha').Value),
-      jaUsuario
-    );
-    FAutenticado := jaUsuario.Count = 1;
+    FUsuario := TUsuario.AutenticaUsuario(joAutenticacao.GetValue('usuario').Value, joAutenticacao.GetValue('senha').Value, conMariaDB);
+    if FUsuario = -1 then
+      FAutenticado := False;
+
     if FAutenticado then
-    begin
-      Result.AddPair('autenticado', TJSONBool.Create(True));
-      FUsuario := TJSONNumber(TJSONObject(jaUsuario.Items[0]).GetValue('id')).AsInt64;
-    end
+      Result.AddPair('autenticado', TJSONBool.Create(True))
     else
       Result.AddPair('autenticado', TJSONBool.Create(False)).AddPair('motivo', 'Parâmetros "usuario" ou "senha" incorretos!');
   finally
@@ -144,57 +143,24 @@ begin
 end;
 
 procedure TConversaDados.ExecutaComando(const WebSocket: TWebSocketServer; const cmdRequisicao: TComando; var cmdResposta: TComando);
-var
-  consulta: TConsulta;
-  sTabela: String;
-  sTexto: String;
 begin
-  sTabela := cmdRequisicao.Recurso.Replace('.', '_').Replace('/', '_').Replace('\', '_');
- 
-  case IndexStr(cmdRequisicao.Metodo, ['criar', 'obter', 'alterar', 'remover']) of
-    0: // criar
-    begin
-      Criar(cmdRequisicao.Dados, cmdResposta.Dados);
-    end;
-    1: // obter
-    begin
-      consulta := TConsulta.Create(cmdRequisicao.Dados);
-      try
-        sTexto := consulta.Texto;
-        Obter('select * from '+ sTabela +' '+ IfThen(not sTexto.IsEmpty, ' where '+ sTexto), cmdResposta.Dados);
-      finally
-        FreeAndNil(consulta);
-      end;
-    end;
-    2: // alterar
-    begin
-      consulta := TConsulta.Create(TJSONArray(cmdRequisicao.Dados.Items[0]));
-      try
-        sTexto := consulta.Texto;
-        Alterar('select * from '+ sTabela +' '+ IfThen(not sTexto.IsEmpty, ' where '+ sTexto), TJSONArray(cmdRequisicao.Dados.Items[1]), cmdResposta.Dados);
-      finally
-        FreeAndNil(consulta);
-      end;
-    end;
-    3: // remover
-    begin
-      consulta := TConsulta.Create(cmdRequisicao.Dados);
-      try
-        sTexto := consulta.Texto;
-        Remover('select * from '+ sTabela +' '+ IfThen(not sTexto.IsEmpty, ' where '+ sTexto), cmdResposta.Dados);
-      finally
-        FreeAndNil(consulta);
-      end;
-    end;
-  else
-    raise Exception.Create('Metodo: "'+ cmdRequisicao.Metodo +'" inválido!');
-  end;
-  
-  // Notificar todos usuários envolvidos quando há alterações nas tabelas compartilhadas
-  if MatchStr(cmdRequisicao.Metodo, ['criar', 'alterar', 'remover']) and
-     MatchStr(sTabela, ['conversa', 'conversa_usuario', 'mensagem', 'mensagem_confirmacao', 'mensagem_status']) then
-    NotificaEnvolvidos(WebSocket, FContexto, cmdResposta, sTabela)
-  else // Avisa somente o usuário atual
+  // Perfil
+  TPerfil.Rotas(cmdRequisicao, cmdResposta, conMariaDB, FUsuario);
+  TUsuario.Rotas(cmdRequisicao, cmdResposta, conMariaDB, FUsuario);
+  TContato.Rotas(cmdRequisicao, cmdResposta, conMariaDB, FUsuario);
+  TMensagemEventoTipo.Rotas(cmdRequisicao, cmdResposta, conMariaDB, FUsuario);
+  TAnexoTipo.Rotas(cmdRequisicao, cmdResposta, conMariaDB, FUsuario);
+  TConversaTipo.Rotas(cmdRequisicao, cmdResposta, conMariaDB, FUsuario);
+  TConversa.Rotas(cmdRequisicao, cmdResposta, conMariaDB, FUsuario);
+  TConversaUsuario.Rotas(cmdRequisicao, cmdResposta, conMariaDB, FUsuario);
+  TMensagem.Rotas(cmdRequisicao, cmdResposta, conMariaDB, FUsuario);
+  TMensagemEvento.Rotas(cmdRequisicao, cmdResposta, conMariaDB, FUsuario);
+  TMensagemAnexo.Rotas(cmdRequisicao, cmdResposta, conMariaDB, FUsuario);
+
+//  // Notificar todos usuários envolvidos quando há alterações nas tabelas compartilhadas
+//  if MatchStr(sTabela, ['conversa', 'conversa_usuario', 'mensagem', 'mensagem_confirmacao', 'mensagem_status']) then
+//    NotificaEnvolvidos(WebSocket, FContexto, cmdResposta, sTabela)
+//  else // Avisa somente o usuário atual
     WebSocket.Send(FContexto, cmdResposta.Texto);
 end;
 
@@ -213,65 +179,6 @@ var
     jaEnvolvidos := TJSONArray.Create;
     try
       sID := '1'; // verificar como obter da resposta
-
-      case IndexStr(sTabela, ['conversa', 'conversa_usuario', 'mensagem', 'mensagem_confirmacao', 'mensagem_status']) of
-        0:
-        Obter(
-          sl +'select usuario_id '+
-          sl +'  from conversa '+
-          sl +' inner '+
-          sl +'  join conversa_usuario '+
-          sl +'    on conversa_usuario.conversa_id = conversa.id '+
-          sl +' where conversa.id = '+ sID,
-          jaEnvolvidos
-        );
-        1:
-        Obter(
-          sl +'select usuario_conversa.usuario_id '+
-          sl +'  from conversa_usuario '+
-          sl +' inner '+
-          sl +'  join conversa_usuario as usuario_conversa '+
-          sl +'    on usuario_conversa.conversa_id = conversa_usuario.conversa_id '+
-          sl +' where conversa_usuario.id = '+ sID,
-          jaEnvolvidos
-        );
-        2:
-        Obter(
-          sl +'select conversa_usuario.usuario_id '+
-          sl +'  from mensagem '+
-          sl +' inner '+
-          sl +'  join conversa_usuario '+
-          sl +'    on conversa_usuario.conversa_id = mensagem.conversa_id '+
-          sl +' where mensagem.id = '+ sID,
-          jaEnvolvidos
-        );
-        3:
-        Obter(
-          sl +'select conversa_usuario.usuario_id '+
-          sl +'  from mensagem_confirmacao '+
-          sl +' inner '+
-          sl +'  join mensagem '+
-          sl +'    on mensagem.id = mensagem_confirmacao.mensagem_id '+
-          sl +' inner '+
-          sl +'  join conversa_usuario '+
-          sl +'    on conversa_usuario.conversa_id = mensagem.conversa_id '+
-          sl +' where mensagem_confirmacao.id = '+ sID,
-          jaEnvolvidos
-        );
-        4:
-        Obter(
-          sl +'select conversa_usuario.usuario_id '+
-          sl +'  from mensagem_status '+
-          sl +' inner '+
-          sl +'  join mensagem '+
-          sl +'    on mensagem.id = mensagem_status.mensagem_id '+
-          sl +' inner '+
-          sl +'  join conversa_usuario '+
-          sl +'    on conversa_usuario.conversa_id = mensagem.conversa_id '+
-          sl +' where mensagem_status.id = '+ sID,
-          jaEnvolvidos
-        );
-      end;
 
       for jvItem in jaEnvolvidos do
       begin
@@ -302,118 +209,6 @@ begin
         TWebSocketIOHandlerHelper(TIdContext(Clients[I]).Connection.IOHandler).WriteString(cmdResposta.Texto);
   finally
     WebSocket.Contexts.UnlockList;
-  end;
-end;
-
-function TConversaDados.TabelaParaJSONObject(qry: TFDQuery): TJSONObject;
-var
-  field: TField;
-begin
-  Result := TJSONObject.Create;
-  for field in qry.Fields do
-  begin
-    if field.IsNull then
-      Result.AddPair(field.FieldName, TJSONNull.Create)
-    else
-    if field is TStringField then
-      Result.AddPair(field.FieldName, field.AsString)
-    else
-    if field is TNumericField then
-      Result.AddPair(field.FieldName, TJSONNumber.Create(field.AsFloat))
-    else
-    if (field is TDateTimeField) or (field is TSQLTimeStampField) then
-      Result.AddPair(field.FieldName, DateToISO8601(field.AsDateTime))
-    else
-      raise Exception.Create(Self.Name +': Tipo do campo não esperado!'+ sLineBreak +'Campo: '+ field.FieldName);
-  end;
-end;
-
-function TConversaDados.AbreTabela(sConsulta: String): TFDQuery;
-begin
-  Result := TFDQuery.Create(nil);
-  try
-    Result.Connection := conMariaDB;
-    Result.Open(sConsulta);    
-  except on E: Exception do
-    begin
-      FreeAndNil(Result);
-      raise Exception.Create(E.Message);
-    end;
-  end;
-end;
-
-procedure TConversaDados.Criar(jaItems, jaRetorno: TJSONArray);
-begin
-  with TInsere.Create(jaItems, conMariaDB) do
-  try
-    Executar(jaRetorno);
-  finally
-    Free;
-  end;
-end;
-
-procedure TConversaDados.Obter(sConsulta: String; jaRetorno: TJSONArray);
-var
-  qry: TFDQuery;
-begin
-  qry := AbreTabela(sConsulta);
-  try
-    qry.First;
-    while not qry.Eof do
-    begin
-      jaRetorno.AddElement(TabelaParaJSONObject(qry));
-      qry.Next;
-    end;
-  finally
-    FreeAndNil(qry);
-  end;
-end;
-
-procedure TConversaDados.Alterar(sConsulta: String; jaItems, jaRetorno: TJSONArray);
-var
-  qry: TFDQuery;
-begin
-  qry := AbreTabela(sConsulta);
-  try
-    qry.First;
-    while not qry.Eof do
-    begin
-      qry.Edit;
-      // fazer a alteração
-      jaRetorno.AddElement(TabelaParaJSONObject(qry));
-      qry.Next;
-    end;
-    if qry.State = dsEdit then
-    begin
-      qry.Post;
-      qry.ApplyUpdates(0);
-      qry.CommitUpdates;
-    end;
-  finally
-    FreeAndNil(qry);
-  end;
-end;
-
-procedure TConversaDados.Remover(sConsulta: String; jaRetorno: TJSONArray);
-var
-  qry: TFDQuery;
-begin
-  qry := AbreTabela(sConsulta);
-  try
-    qry.First;
-    while not qry.Eof do
-    begin
-      jaRetorno.AddElement(TabelaParaJSONObject(qry));
-      qry.Delete;
-    end;
-    if qry.State = dsEdit then
-    begin
-      qry.Post;
-      qry.ApplyUpdates(0);
-      qry.CommitUpdates;
-    end;
-  finally
-    FreeAndNil(qry);
   end;
 end;
 
