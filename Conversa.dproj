@@ -121,6 +121,7 @@
         <DCCReference Include="src\servidor\Conversa.Mensagem.pas"/>
         <DCCReference Include="src\servidor\Conversa.MensagemEvento.pas"/>
         <DCCReference Include="src\servidor\Conversa.MensagemAnexo.pas"/>
+        <DCCReference Include="src\servidor\Conversa.MensagemConfirmacao.pas"/>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>

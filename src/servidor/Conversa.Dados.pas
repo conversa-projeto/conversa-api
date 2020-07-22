@@ -73,7 +73,8 @@ uses
   Conversa.ConversaUsuario,
   Conversa.Mensagem,
   Conversa.MensagemEvento,
-  Conversa.MensagemAnexo;
+  Conversa.MensagemAnexo,
+  Conversa.MensagemConfirmacao;
 
 class function TConversaDados.Dados(const Contexto: TIdContext): TConversaDados;
 begin
@@ -109,7 +110,7 @@ begin
 
   if not cmdRequisicao.Recurso.Equals('autenticacao') then
   begin
-    Result.AddPair('autenticado', TJSONBool.Create(False)).AddPair('motivo', 'Recurso "autenticacao" com metodo "obter" não foi solicitado!');
+    Result.AddPair('autenticado', TJSONBool.Create(False)).AddPair('motivo', 'Recurso "autenticacao" não foi solicitado!');
     Exit;
   end;
 
@@ -130,8 +131,7 @@ begin
   jaUsuario := TJSONArray.Create;
   try
     FUsuario := TUsuario.AutenticaUsuario(joAutenticacao.GetValue('usuario').Value, joAutenticacao.GetValue('senha').Value, conMariaDB);
-    if FUsuario = -1 then
-      FAutenticado := False;
+    FAutenticado := FUsuario <> -1;
 
     if FAutenticado then
       Result.AddPair('autenticado', TJSONBool.Create(True))
@@ -156,6 +156,7 @@ begin
   TMensagem.Rotas(cmdRequisicao, cmdResposta, conMariaDB, FUsuario);
   TMensagemEvento.Rotas(cmdRequisicao, cmdResposta, conMariaDB, FUsuario);
   TMensagemAnexo.Rotas(cmdRequisicao, cmdResposta, conMariaDB, FUsuario);
+  TMensagemConfirmacao.Rotas(cmdRequisicao, cmdResposta, conMariaDB, FUsuario);
 
 //  // Notificar todos usuários envolvidos quando há alterações nas tabelas compartilhadas
 //  if MatchStr(sTabela, ['conversa', 'conversa_usuario', 'mensagem', 'mensagem_confirmacao', 'mensagem_status']) then

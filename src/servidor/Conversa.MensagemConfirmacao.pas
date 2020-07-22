@@ -1,6 +1,6 @@
-﻿// Eduardo - 20/07/2020
+﻿// Eduardo - 21/07/2020
 
-unit Conversa.MensagemEvento;
+unit Conversa.MensagemConfirmacao;
 
 interface
 
@@ -14,7 +14,7 @@ uses
   Conversa.Base;
 
 type
-  TMensagemEvento = class(TBase)
+  TMensagemConfirmacao = class(TBase)
   public
     function Incluir: TJSONObject;
     procedure Obter(var jaSaida: TJSONArray);
@@ -31,20 +31,20 @@ uses
   Data.DB,
   System.DateUtils;
 
-{ TMensagemEvento }
+{ TMensagemConfirmacao }
 
-class procedure TMensagemEvento.Rotas(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64);
+class procedure TMensagemConfirmacao.Rotas(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64);
 const
-  RotaMensagemEvento: Array[0..3] of String = ('mensagem_evento.incluir', 'mensagem_evento.obter', 'mensagem_evento.alterar', 'mensagem_evento.excluir');
+  RotaMensagemConfirmacao: Array[0..3] of String = ('mensagem_confirmacao.incluir', 'mensagem_confirmacao.obter', 'mensagem_confirmacao.alterar', 'mensagem_confirmacao.excluir');
 var
   jaDados: TJSONArray;
 begin
-  case IndexStr(cmdRequisicao.Recurso, RotaMensagemEvento) of
+  case IndexStr(cmdRequisicao.Recurso, RotaMensagemConfirmacao) of
     0,1,2,3:
     begin
-      with TMensagemEvento.Create(cmdRequisicao.Dados, Conexao, Usuario) do
+      with TMensagemConfirmacao.Create(cmdRequisicao.Dados, Conexao, Usuario) do
       try
-        case IndexStr(cmdRequisicao.Recurso, RotaMensagemEvento) of
+        case IndexStr(cmdRequisicao.Recurso, RotaMensagemConfirmacao) of
           0: cmdResposta.Dados.AddElement(Incluir);
           1:
           begin
@@ -61,20 +61,17 @@ begin
   end;
 end;
 
-function TMensagemEvento.Incluir: TJSONObject;
+function TMensagemConfirmacao.Incluir: TJSONObject;
 begin
   QryDados.Close;
   QryDados.Open(
     'insert '+
-    '  into mensagem_evento '+
-    '     ( usuario_id '+
-    '     , mensagem_id '+
-    '     , tipo '+
+    '  into mensagem_confirmacao '+
+    '     ( descricao '+
     '     , incluido_id '+
     '     ) '+
     'values '+
-    '     ( '+ QuotedStr(Dados.GetValue<String>('[0].mensagem_id')) +
-    '     , '+ QuotedStr(Dados.GetValue<String>('[0].tipo')) +
+    '     ( '+ QuotedStr(Dados.GetValue<String>('[0].descricao')) +
     '     , '+ IntToStr(Usuario) +
     '     ); '+
     'select LAST_INSERT_ID() as id '
@@ -82,7 +79,7 @@ begin
   Result := TJSONObject.Create.AddPair('id', TJSONNumber.Create(QryDados.FieldByName('id').AsLargeInt));
 end;
 
-procedure TMensagemEvento.Obter(var jaSaida: TJSONArray);
+procedure TMensagemConfirmacao.Obter(var jaSaida: TJSONArray);
 var
   consulta: TConsulta;
   sTexto: String;
@@ -93,7 +90,7 @@ begin
     QryDados.Close;
     QryDados.Open(
       'select * '+
-      '  from mensagem_evento '+
+      '  from mensagem_confirmacao '+
       ' where excluido_id is null '+
       IfThen(not sTexto.IsEmpty, '   and '+ sTexto)
     );
@@ -108,14 +105,14 @@ begin
   end;
 end;
 
-function TMensagemEvento.Alterar: TJSONObject;
+function TMensagemConfirmacao.Alterar: TJSONObject;
 var
   I: Integer;
 begin
   QryDados.Close;
   QryDados.Open(
     'select * '+
-    '  from mensagem_evento '+
+    '  from mensagem_confirmacao '+
     ' where id = '+ QuotedStr(Dados.GetValue<String>('[0].id'))
   );
 
@@ -161,12 +158,12 @@ begin
   Result := TJSONObject.Create;
 end;
 
-function TMensagemEvento.Excluir: TJSONObject;
+function TMensagemConfirmacao.Excluir: TJSONObject;
 begin
   QryDados.Close;
   QryDados.Open(
     'select * '+
-    '  from mensagem_evento '+
+    '  from mensagem_confirmacao '+
     ' where id = '+ QuotedStr(Dados.GetValue<String>('[0].id'))
   );
 

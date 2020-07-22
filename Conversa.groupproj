@@ -6,7 +6,7 @@
         <Projects Include="Conversa.dproj">
             <Dependencies/>
         </Projects>
-        <Projects Include="Cliente.dproj">
+        <Projects Include="src\cliente\Cliente.dproj">
             <Dependencies/>
         </Projects>
     </ItemGroup>
@@ -27,13 +27,13 @@
         <MSBuild Projects="Conversa.dproj" Targets="Make"/>
     </Target>
     <Target Name="Cliente">
-        <MSBuild Projects="Cliente.dproj"/>
+        <MSBuild Projects="src\cliente\Cliente.dproj"/>
     </Target>
     <Target Name="Cliente:Clean">
-        <MSBuild Projects="Cliente.dproj" Targets="Clean"/>
+        <MSBuild Projects="src\cliente\Cliente.dproj" Targets="Clean"/>
     </Target>
     <Target Name="Cliente:Make">
-        <MSBuild Projects="Cliente.dproj" Targets="Make"/>
+        <MSBuild Projects="src\cliente\Cliente.dproj" Targets="Make"/>
     </Target>
     <Target Name="Build">
         <CallTarget Targets="Conversa;Cliente"/>
