@@ -23,10 +23,23 @@ type
     cdsPerfilincluido_em: TDateTimeField;
     cdsPerfilalterado_em: TDateTimeField;
     cdsPerfilexcluido_em: TDateTimeField;
+    cdsUsuario: TClientDataSet;
+    cdsUsuarioid: TIntegerField;
+    cdsUsuarionome: TStringField;
+    cdsUsuarioapelido: TStringField;
+    cdsUsuarioemail: TStringField;
+    cdsUsuariousuario: TStringField;
+    cdsUsuariosenha: TStringField;
+    cdsUsuarioperfil_id: TIntegerField;
+    cdsUsuarioincluido_id: TIntegerField;
+    cdsUsuarioincluido_em: TDateTimeField;
+    cdsUsuarioalterado_id: TIntegerField;
+    cdsUsuarioalterado_em: TDateTimeField;
+    cdsUsuarioexcluido_id: TIntegerField;
+    cdsUsuarioexcluido_em: TDateTimeField;
     procedure DataModuleCreate(Sender: TObject);
   private
     WebSocket: TWebSocketClient;
-    procedure Autenticacao;
     procedure AoReceber(W: TWebSocketClient; S: String);
   public
     { Public declarations }
@@ -39,31 +52,13 @@ implementation
 
 uses
   System.JSON,
+  System.Generics.Collections,
   Conversa.Comando,
   Conversa.Consulta;
 
 {%CLASSGROUP 'Vcl.Controls.TControl'}
 
 {$R *.dfm}
-
-procedure TDados.Autenticacao;
-var
-  cmdRequisicao: TComando;
-begin
-  // Autenticação
-  cmdRequisicao := TComando.Create;
-  try
-    cmdRequisicao.Recurso := 'autenticacao';
-    cmdRequisicao.Dados.AddElement(
-      TJSONObject.Create
-        .AddPair('usuario', 'eduardo')
-        .AddPair('senha',   '123456')
-    );
-    WebSocket.SendWait(cmdRequisicao.Texto);
-  finally
-    FreeAndNil(cmdRequisicao);
-  end;
-end;
 
 procedure TDados.AoReceber(W: TWebSocketClient; S: String);
 var
@@ -81,40 +76,27 @@ end;
 procedure TDados.DataModuleCreate(Sender: TObject);
 begin
   WebSocket := TWebSocketClient.Create(Self);
-  WebSocket.Connect('ws://localhost:82');
-  WebSocket.MethodReceive(AoReceber);
-
-  Autenticacao;
-
-  cdsPerfil
-    .WSCreate
-    .WSSetGet(
-      function (consulta: TConsulta): TJSONArray
-      var
-        cmdRequisicao: TComando;
-        cmdRetorno: TComando;
-      begin
-        cmdRequisicao := TComando.Create;
-        try
-          cmdRequisicao.Recurso := 'perfil.obter';
-          consulta.ParaArray(cmdRequisicao.Dados);
-          cmdRetorno := TComando.Create(WebSocket.SendWait(cmdRequisicao.Texto));
-          try
-            Result := TJSONArray(cmdRetorno.Dados.Clone);
-          finally
-            FreeAndNil(cmdRetorno);
-          end;
-        finally
-          FreeAndNil(cmdRequisicao);
-        end;
-      end
-    );
-
-  cdsPerfil.WSOpen(
-    TConsulta.Create
-      .EmNumero('id', [1, 2, 3])
-      .Contem('descricao', '%a%')
+  WebSocket.Conectar('ws://localhost:82');
+  WebSocket.AoReceber(AoReceber);
+  WebSocket.AoAutenticar(
+    function: TJSONObject
+    begin
+      Result :=
+        TJSONObject.Create
+          .AddPair('usuario', 'eduardo')
+          .AddPair('senha',   '123456');
+    end
   );
+  WebSocket.AoErro(
+    procedure (Erro: TClass; Mensagem: String)
+    begin
+      if Erro = ErroAutenticar then
+        raise Exception.Create(Mensagem);
+    end
+  );
+
+  cdsPerfil.WSCreate(WebSocket, 'perfil');
+  cdsUsuario.WSCreate(WebSocket, 'usuario');
 end;
 
 end.

@@ -22,7 +22,9 @@ uses
   System.Threading,
   DateUtils,
   System.SyncObjs,
-  IdURI;
+  IdURI,
+  System.JSON,
+  Conversa.Comando;
 
 type
   TSWSCDataEvent = procedure(Sender: TObject; const Text: string) of object;
@@ -33,6 +35,8 @@ const
   TOpCodeByte: Array[TopCode] of Byte = ($0, $1, $2, $8, $9, $A);
 
 type
+  ErroAutenticar = class(Exception);
+
   TWebSocketClient = class(TIdTCPClient)
   private
     SecWebSocketAcceptExpectedResponse: String;
@@ -43,10 +47,15 @@ type
     FonError: TSWSCErrorEvent;
     FonPing: TSWSCDataEvent;
     FonConnectionDataEvent: TSWSCDataEvent;
-    FMethodReceive: TProc<TWebSocketClient, String>;
+    FMetodoReceber: TProc<TWebSocketClient, String>;
+    FMetodoAutenticar: TFunc<TJSONObject>;
+    FMetodoErro: TProc<TClass, String>;
     FUpgraded: Boolean;
-    FResult: String;
-    function Trigger(s: String): Boolean;
+    FAutenticado: Boolean;
+    FResultado: String;
+    FTerminou: Boolean;
+    function Gatilho(s: String): Boolean;
+    procedure Autenticacao;
   protected
     lInternalLock: TCriticalSection;
     lClosingEventLocalHandshake: Boolean;
@@ -70,12 +79,14 @@ type
     property HeartBeatInterval: Cardinal read FHeartBeatInterval write FHeartBeatInterval;
     property URL: String read FURL write FURL;
   public
-    procedure Connect(sURL: String); overload;
+    procedure Conectar(sURL: String);
     procedure Close;
-    function Connected: Boolean; reintroduce;
-    function MethodReceive(M: TProc<TWebSocketClient, String>): TWebSocketClient;
-    procedure Send(sMsg: String);
-    function SendWait(sMsg: String): String;
+    function Conectado: Boolean;
+    function AoReceber(M: TProc<TWebSocketClient, String>): TWebSocketClient;
+    function AoAutenticar(M: TFunc<TJSONObject>): TWebSocketClient;
+    function AoErro(M: TProc<TClass, String>): TWebSocketClient;
+    procedure Enviar(sMsg: String);
+    function EnviaAguarda(sMsg: String): String;
     constructor Create(AOwner: TComponent);
     destructor Destroy; override;
 end;
@@ -89,9 +100,11 @@ end;
 
 procedure TWebSocketClient.Close;
 begin
+  if not Self.Conectado then
+    Exit;
   Self.lInternalLock.Enter;
   try
-    if Self.Connected then
+    if Self.Conectado then
     begin
       Self.SendCloseHandShake;
       Self.IOHandler.InputBuffer.Clear;
@@ -125,22 +138,23 @@ begin
   end;
 end;
 
-function TWebSocketClient.Connected: Boolean;
+function TWebSocketClient.Conectado: Boolean;
 begin
   Result := False;
   try
-    Result := inherited;
+    Result := inherited Connected;
   except
   end
 end;
 
-procedure TWebSocketClient.Connect(sURL: String);
+procedure TWebSocketClient.Conectar(sURL: String);
 var
   URI: TIdURI;
   lSecure: Boolean;
 begin
   uri := nil;
   try
+    FAutenticado := False;
     lClosingEventLocalHandshake := false;
     URI := TIdURI.Create(sURL);
     Self.URL := sURL;
@@ -168,7 +182,7 @@ begin
       (Self.IOHandler as TIdSSLIOHandlerSocketOpenSSL).SSLOptions.SSLVersions := [TIdSSLVersion.sslvTLSv1, TIdSSLVersion.sslvTLSv1_1, TIdSSLVersion.sslvTLSv1_2]; //depending on your server, change this at your code;
     end;
 
-    if Self.Connected then
+    if Self.Conectado then
       raise Exception.Create('Already connected, verify');
 
     inherited Connect;
@@ -204,10 +218,12 @@ begin
   lInternalLock := TCriticalSection.Create;
   Randomize;
   Self.HeartBeatInterval := 30000;
+  FTerminou := False;
 end;
 
 destructor TWebSocketClient.Destroy;
 begin
+  FTerminou := True;
   lInternalLock.Free;
   if Assigned(Self.IOHandler) then
     Self.IOHandler.Free;
@@ -306,7 +322,7 @@ begin
   linFrame := false;
 
   try
-    while Connected and not FUpgraded do
+    while Conectado and not FUpgraded do
     begin
       b := Self.Socket.ReadByte;
       lSpool := lSpool + Chr(b);
@@ -344,14 +360,15 @@ begin
     end;
   end;
 
-  if Connected then
+  if Conectado then
     T := TTask.Run(
       procedure
       begin
         try
-          while Connected do
+          while Conectado do
           begin
-            b := Self.Socket.ReadByte;
+            if not FTerminou then
+              b := Self.Socket.ReadByte;
 
             if FUpgraded and (lPos = 0) and GetABit(b, 7) then
             begin
@@ -406,8 +423,8 @@ begin
                   if Assigned(Self.lSyncFunctionTrigger) and Self.lSyncFunctionTrigger(lSpool) then
                     Self.lSyncFunctionEvent.SetEvent
                   else
-                  if FUpgraded and Assigned(FMethodReceive) and (not (lOpCode = TOpCodeByte[TOpCode.TOConnectionClose]))  then
-                    FMethodReceive(Self, lSpool);
+                  if FUpgraded and Assigned(FMetodoReceber) and (not (lOpCode = TOpCodeByte[TOpCode.TOConnectionClose]))  then
+                    FMetodoReceber(Self, lSpool);
                 end;
 
                 lSpool := '';
@@ -435,7 +452,7 @@ begin
         end;
       end);
 
-  if (not Connected or not FUpgraded) and (not ((lOpCode = TOpCodeByte[TOpCode.TOConnectionClose]) or lClosingEventLocalHandshake))then
+  if (not Conectado or not FUpgraded) and (not ((lOpCode = TOpCodeByte[TOpCode.TOConnectionClose]) or lClosingEventLocalHandshake))then
     raise Exception.Create('Websocket not connected or timeout'+ QuotedStr(lSpool))
   else
   if Assigned(Self.OnUpgrade) then
@@ -452,7 +469,7 @@ begin
     begin
       TimeUltimaNotif := Now;
       try
-        while Self.Connected and (Self.HeartBeatInterval > 0) do
+        while Self.Conectado and (Self.HeartBeatInterval > 0) do
         begin
           if MilliSecondsBetween(TimeUltimaNotif, Now) >= Floor(Self.HeartBeatInterval) then
           begin
@@ -500,14 +517,64 @@ begin
   Result := aValue or (1 shl Bit);
 end;
 
-function TWebSocketClient.MethodReceive(M: TProc<TWebSocketClient, String>): TWebSocketClient;
+function TWebSocketClient.AoAutenticar(M: TFunc<TJSONObject>): TWebSocketClient;
 begin
   Result := Self;
-  FMethodReceive := M;
+  FMetodoAutenticar := M;
 end;
 
-procedure TWebSocketClient.Send(sMsg: String);
+procedure TWebSocketClient.Autenticacao;
+var
+  cmdRequisicao: TComando;
+  cmdResposta: TComando;
+  MetodoAutenticar: TFunc<TJSONObject>;
 begin
+  if FAutenticado or not Assigned(FMetodoAutenticar) then
+    Exit;
+
+  // Remove evento para sair do loop, armazena evento original na variavel
+  MetodoAutenticar  := FMetodoAutenticar;
+  FMetodoAutenticar := nil;
+  try
+    // Autenticação
+    cmdRequisicao := TComando.Create;
+    try
+      cmdRequisicao.Recurso := 'autenticacao';
+      cmdRequisicao.Dados.AddElement(MetodoAutenticar);
+      cmdResposta := TComando.Create(EnviaAguarda(cmdRequisicao.Texto));
+      try
+        FAutenticado := cmdResposta.Dados.GetValue<Boolean>('[0].autenticado');
+        if not FAutenticado then
+          if Assigned(FMetodoErro) then
+            FMetodoErro(ErroAutenticar, cmdResposta.Dados.GetValue<String>('[0].motivo'))
+          else
+            raise Exception.Create(cmdResposta.Dados.GetValue<String>('[0].motivo'));
+      finally
+        FreeAndNil(cmdResposta);
+      end;
+    finally
+      FreeAndNil(cmdRequisicao);
+    end;
+  finally
+    FMetodoAutenticar := MetodoAutenticar;
+  end;
+end;
+
+function TWebSocketClient.AoErro(M: TProc<TClass, String>): TWebSocketClient;
+begin
+  Result := Self;
+  FMetodoErro := M;
+end;
+
+function TWebSocketClient.AoReceber(M: TProc<TWebSocketClient, String>): TWebSocketClient;
+begin
+  Result := Self;
+  FMetodoReceber := M;
+end;
+
+procedure TWebSocketClient.Enviar(sMsg: String);
+begin
+  Autenticacao;
   try
     lInternalLock.Enter;
     Self.Socket.Write(EncodeFrame(sMsg));
@@ -516,22 +583,23 @@ begin
   end;
 end;
 
-function TWebSocketClient.Trigger(s: String): Boolean;
+function TWebSocketClient.Gatilho(s: String): Boolean;
 begin
-  FResult := s;
+  FResultado := s;
   Result := True;
 end;
 
-function TWebSocketClient.SendWait(sMsg: String): String;
+function TWebSocketClient.EnviaAguarda(sMsg: String): String;
 begin
-  FResult := '';
-  Self.lSyncFunctionTrigger := Trigger;
+  Autenticacao;
+  FResultado := '';
+  Self.lSyncFunctionTrigger := Gatilho;
   try
     Self.lSyncFunctionEvent := TSimpleEvent.Create;
     Self.lSyncFunctionEvent.ResetEvent;
-    Self.Send(sMsg);
+    Self.Enviar(sMsg);
     Self.lSyncFunctionEvent.WaitFor(Self.ReadTimeout);
-    Result := FResult;
+    Result := FResultado;
   finally
     Self.lSyncFunctionTrigger:= nil;
     Self.lSyncFunctionEvent.Free;

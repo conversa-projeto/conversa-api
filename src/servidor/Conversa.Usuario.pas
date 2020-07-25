@@ -213,6 +213,8 @@ begin
       'select id '+
       '  from usuario '+
       ' where excluido_id is null '+
+      '   and usuario = '+ QuotedStr(sUsuario) +
+      '   and senha   = '+ QuotedStr(sSenha) +
       IfThen(not sTexto.IsEmpty, '   and '+ sTexto)
     );
     if qry.IsEmpty then

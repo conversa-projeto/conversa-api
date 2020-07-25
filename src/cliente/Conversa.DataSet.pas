@@ -9,36 +9,36 @@ uses
   System.JSON,
   Data.DB,
   Datasnap.DBClient,
-  Conversa.Consulta;
+  Conversa.Consulta,
+  Conversa.Comando,
+  Conversa.WebSocket;
 
 type
   TClientDataSet = class(Datasnap.DBClient.TClientDataSet)
   private
-    FRESTState: TDataSetState;
+    FWSState: TDataSetState;
     FFieldCount: Integer;
     aChanged: TArray<Boolean>;
     aOnValidate: TArray<TFieldNotifyEvent>;
     FNotAdd: Integer;
-    FMethodGet: TFunc<TConsulta, TJSONArray>;
-    FMethodPut: TFunc<TJSONObject, TJSONObject>;
-    FMethodPost: TFunc<TJSONObject, TJSONObject>;
-    FMethodDelete: TProc;
+    FTabela: String;
+    FWebSocket: TWebSocketClient;
     procedure LoadFromJSONArray(aJSON : TJSONArray);
     procedure FieldOnValidate(Sender: TField);
+    function MetodoIncluir(oJSON: TJSONObject): TJSONObject;
+    function MetodoObter(consulta: TConsulta): TJSONArray;
+    function MetodoAlterar(oJSON: TJSONObject): TJSONObject;
+    procedure MetodoExcluir;
   public
-    function WSCreate: TClientDataSet;
-    function WSSetGet(pProc: TFunc<TConsulta, TJSONArray>): TClientDataSet;
-    function WSSetPut(pProc: TFunc<TJSONObject, TJSONObject>): TClientDataSet;
-    function WSSetPost(pProc: TFunc<TJSONObject, TJSONObject>): TClientDataSet;
-    function WSSetDelete(pProc: TProc): TClientDataSet;
-    function WSOpen(consulta: TConsulta): TClientDataSet;
+    function WSCreate(WS: TWebSocketClient; sTabela: String): TClientDataSet;
+    function WSOpen(consulta: TConsulta = nil): TClientDataSet;
     function WSClose: TClientDataSet;
     function WSAppend: TClientDataSet;
     function WSEdit: TClientDataSet;
     function WSPost: TClientDataSet;
     function WSCancel: TClientDataSet;
     function WSDelete: TClientDataSet;
-    property WSState: TDataSetState read FRESTState;
+    property WSState: TDataSetState read FWSState;
   end;
 
 const
@@ -55,18 +55,23 @@ uses
 
 { TClientDataSet }
 
-function TClientDataSet.WSCreate: TClientDataSet;
+function TClientDataSet.WSCreate(WS: TWebSocketClient; sTabela: String): TClientDataSet;
 var
   I: Integer;
 begin
   if not Self.ProviderName.IsEmpty then
     raise Exception.Create(Self.Name +': REST só disponível para ClientDataSet temporário!');
 
+  if sTabela.IsEmpty then
+    raise Exception.Create('Erro ao obter o nome da tabela!');
+
   Result := Self;
 
   // Armazena a quantidade de fields do ClientDataSet
   FFieldCount := Self.FieldCount;
   FNotAdd     := 0;
+  FTabela     := sTabela;
+  FWebSocket  := WS;
 
   // Se não tem fields não cria agora
   if FFieldCount = 0 then
@@ -88,28 +93,89 @@ begin
   end;
 end;
 
-function TClientDataSet.WSSetGet(pProc: TFunc<TConsulta, TJSONArray>): TClientDataSet;
+function TClientDataSet.MetodoIncluir(oJSON: TJSONObject): TJSONObject;
+var
+  cmdRequisicao: TComando;
+  cmdRetorno: TComando;
 begin
-  Result := Self;
-  FMethodGet := pProc;
+  cmdRequisicao := TComando.Create;
+  try
+    cmdRequisicao.Recurso := FTabela +'.incluir';
+    cmdRequisicao.Dados.AddElement(TJSONObject(oJSON.Clone));
+    cmdRetorno := TComando.Create(FWebSocket.EnviaAguarda(cmdRequisicao.Texto));
+    try
+      if cmdRetorno.Dados.Count = 0 then
+        raise Exception.Create('Erro ao inserir!');
+      Result := TJSONObject(cmdRetorno.Dados.Items[0].Clone);
+    finally
+      FreeAndNil(cmdRetorno);
+    end;
+  finally
+    FreeAndNil(cmdRequisicao);
+  end;
 end;
 
-function TClientDataSet.WSSetPut(pProc: TFunc<TJSONObject, TJSONObject>): TClientDataSet;
+function TClientDataSet.MetodoObter(consulta: TConsulta): TJSONArray;
+var
+  cmdRequisicao: TComando;
+  cmdRetorno: TComando;
 begin
-  Result := Self;
-  FMethodPut := pProc;
+  cmdRequisicao := TComando.Create;
+  try
+    cmdRequisicao.Recurso := FTabela +'.obter';
+    if Assigned(consulta) then
+      consulta.ParaArray(cmdRequisicao.Dados);
+    cmdRetorno := TComando.Create(FWebSocket.EnviaAguarda(cmdRequisicao.Texto));
+    try
+      Result := TJSONArray(cmdRetorno.Dados.Clone);
+    finally
+      FreeAndNil(cmdRetorno);
+    end;
+  finally
+    FreeAndNil(cmdRequisicao);
+  end;
 end;
 
-function TClientDataSet.WSSetPost(pProc: TFunc<TJSONObject, TJSONObject>): TClientDataSet;
+function TClientDataSet.MetodoAlterar(oJSON: TJSONObject): TJSONObject;
+var
+  cmdRequisicao: TComando;
+  cmdRetorno: TComando;
 begin
-  Result := Self;
-  FMethodPost := pProc;
+  cmdRequisicao := TComando.Create;
+  try
+    cmdRequisicao.Recurso := FTabela +'.alterar';
+    oJSON.AddPair('id', TJSONNumber.Create(Self.FieldByName('id').AsInteger));
+    cmdRequisicao.Dados.AddElement(TJSONObject(oJSON.Clone));
+    cmdRetorno := TComando.Create(FWebSocket.EnviaAguarda(cmdRequisicao.Texto));
+    try
+      if cmdRetorno.Dados.Count = 0 then
+        raise Exception.Create('Erro ao alterar!');
+      Result := TJSONObject(cmdRetorno.Dados.Items[0].Clone);
+    finally
+      FreeAndNil(cmdRetorno);
+    end;
+  finally
+    FreeAndNil(cmdRequisicao);
+  end;
 end;
 
-function TClientDataSet.WSSetDelete(pProc: TProc): TClientDataSet;
+procedure TClientDataSet.MetodoExcluir;
+var
+  cmdRequisicao: TComando;
+  cmdRetorno: TComando;
 begin
-  Result := Self;
-  FMethodDelete := pProc;
+  cmdRequisicao := TComando.Create;
+  try
+    cmdRequisicao.Recurso := FTabela +'.excluir';
+    cmdRequisicao.Dados.AddElement(TJSONObject.Create.AddPair('id', TJSONNumber.Create(Self.FieldByName('id').AsInteger)));
+    cmdRetorno := TComando.Create(FWebSocket.EnviaAguarda(cmdRequisicao.Texto));
+    try
+    finally
+      FreeAndNil(cmdRetorno);
+    end;
+  finally
+    FreeAndNil(cmdRequisicao);
+  end;
 end;
 
 procedure TClientDataSet.FieldOnValidate(Sender: TField);
@@ -142,7 +208,7 @@ begin
   end;
 end;
 
-function TClientDataSet.WSOpen(consulta: TConsulta): TClientDataSet;
+function TClientDataSet.WSOpen(consulta: TConsulta = nil): TClientDataSet;
 var
   I,J          : Integer;
   DField       : TField;
@@ -162,12 +228,9 @@ begin
   if Self.Active then
     Self.EmptyDataSet;
 
-  if not Assigned(FMethodGet) then
-    raise Exception.Create('Metodo Get não definido!');
-
   // Executa chamada e obtem o retorno
   try
-    aJSONTBL := FMethodGet(consulta);
+    aJSONTBL := MetodoObter(consulta);
   finally
     FreeAndNil(consulta);
   end;
@@ -183,7 +246,7 @@ begin
         Self.First;
 
       // Coloca o ClientDataSet em estado de Navegacao
-      Self.FRESTState := dsBrowse;
+      Self.FWSState := dsBrowse;
 
       // Sai da função
       Exit;
@@ -277,7 +340,7 @@ begin
       Self.OnPostError := ROnPosError;
     end;
     // Coloca o ClientDataSet em estado de Navegacao
-    Self.FRESTState := dsBrowse;
+    Self.FWSState := dsBrowse;
   finally
     FreeAndNil(aJSONTBL);
   end;
@@ -294,7 +357,7 @@ function TClientDataSet.WSAppend: TClientDataSet;
 begin
   Result := Self;
   Self.Append;
-  Self.FRESTState := dsInsert;
+  Self.FWSState := dsInsert;
   // Inicializa informação sobre alteração dos dados
   Finalize(aChanged);
   SetLength(aChanged, FFieldCount);
@@ -304,7 +367,7 @@ function TClientDataSet.WSEdit: TClientDataSet;
 begin
   Result := Self;
   Self.Edit;
-  Self.FRESTState := dsEdit;
+  Self.FWSState := dsEdit;
   // Inicializa informação sobre alteração dos dados
   Finalize(aChanged);
   SetLength(aChanged, FFieldCount);
@@ -326,7 +389,7 @@ begin
   Result := Self;
 
   // Se estiver inserindo ou editando
-  if FRESTState in [dsInsert, dsEdit] then
+  if FWSState in [dsInsert, dsEdit] then
   begin
     try
       // Executa validação dos dados
@@ -366,7 +429,7 @@ begin
         Continue;
 
       // Inserção envia todos os campos
-      if (FRESTState = dsEdit)                                              and  // Se for edição
+      if (FWSState = dsEdit)                                              and  // Se for edição
          (not aChanged[Self.Fields[I].Index])                               and  // Se o campo não foi alterado
          (not ((Self.Fields[I].ProviderFlags * [pfInWhere, pfInKey]) = [])) then // Se não é where nem key
         Continue;
@@ -387,31 +450,11 @@ begin
         raise Exception.Create(Self.Name +': Tipo do campo não esperado!'+ sl +'Campo: '+ Self.Fields[I].FieldName +' - Tipo: '+ TRTTIEnumerationType.GetName(Self.Fields[I].DataType));
     end;
 
-    // Se está enviando somente o id
-    if oJSON.Count = 1 then
-    begin
-      // Informa que o processo requisitado foi concluído
-      Self.FRESTState := dsBrowse;
-      Exit;
-    end;
-
     // Envia ao servidor
     try
-      case FRESTState of
-        dsInsert:
-        begin
-          if Assigned(FMethodPut) then
-            oRETURN := FMethodPut(oJSON)
-          else
-            raise Exception.Create('Metodo Put não definido!')
-        end;
-        dsEdit:
-        begin
-          if Assigned(FMethodPost) then
-            oRETURN := FMethodPost(oJSON)
-          else
-            raise Exception.Create('Metodo Post não definido!')
-        end;
+      case FWSState of
+        dsInsert: oRETURN := MetodoIncluir(oJSON);
+        dsEdit:   oRETURN := MetodoAlterar(oJSON)
       end;
 
       // Passa por todos os campos informando que não estão mais alterados
@@ -419,7 +462,7 @@ begin
       SetLength(aChanged, FFieldCount);
 
       // Se for inserção, o servidor irá retornar o registro para os campos auto incremento do banco
-      if FRESTState = dsInsert then
+      if FWSState = dsInsert then
       begin
         // Armazena eventos originais
         RBeforePost      := Self.BeforePost;
@@ -465,7 +508,7 @@ begin
       end;
 
       // Informa que o processo requisitado foi concluído
-      Self.FRESTState := dsBrowse;
+      Self.FWSState := dsBrowse;
     finally
       FreeAndNil(oRETURN);
     end;
@@ -487,23 +530,20 @@ begin
   Self.Cancel;
 
   // Atualiza o tipo de requisição do usuário
-  Self.FRESTState := dsBrowse;
+  Self.FWSState := dsBrowse;
 end;
 
 function TClientDataSet.WSDelete: TClientDataSet;
 begin
   Result := Self;
 
-  if not Assigned(FMethodDelete) then
-    raise Exception.Create('Metodo Delete não definido!');
-
-  FMethodDelete;
+  MetodoExcluir;
 
   // Deleta o registro do cds
   Self.Delete;
 
   // Atualiza o tipo de requisição do usuário
-  Self.FRESTState := dsBrowse;
+  Self.FWSState := dsBrowse;
 end;
 
 end.
