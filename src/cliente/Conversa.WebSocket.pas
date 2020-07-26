@@ -23,6 +23,7 @@ uses
   DateUtils,
   System.SyncObjs,
   IdURI,
+  IdStack,
   System.JSON,
   Conversa.Comando;
 
@@ -36,6 +37,7 @@ const
 
 type
   ErroAutenticar = class(Exception);
+  ErroReconectar = class(EIdSocketError);
 
   TWebSocketClient = class(TIdTCPClient)
   private
@@ -441,7 +443,19 @@ begin
               end;
             end;
           end;
-        except on E: Exception do
+        except
+          on E: EIdSocketError do
+          begin
+            try
+              if Assigned(Self.IOHandler) then
+                Self.IOHandler.Free;
+              Self.Conectar(Self.URL);
+            except on E: EIdSocketError do
+              if Assigned(FMetodoErro) then
+                FMetodoErro(ErroReconectar, E.Message);
+            end;
+          end;
+          on E: Exception do
           begin
             lForceDisconnect := True;
             if Assigned(Self.OnError) then
@@ -577,7 +591,25 @@ begin
   Autenticacao;
   try
     lInternalLock.Enter;
-    Self.Socket.Write(EncodeFrame(sMsg));
+    try
+      if not Self.Conectado then
+      begin
+        try
+          Self.Conectar(Self.URL);
+          Autenticacao;
+        except on E: EIdSocketError do
+          if Assigned(FMetodoErro) then
+            FMetodoErro(ErroReconectar, E.Message);
+        end;
+      end;
+      Self.Socket.Write(EncodeFrame(sMsg));
+    except on E: EIdSocketError do
+      begin
+        if Assigned(Self.IOHandler) then
+          Self.IOHandler.Free;
+        Self.Conectar(Self.URL);
+      end;
+    end;
   finally
     lInternalLock.Leave;
   end;

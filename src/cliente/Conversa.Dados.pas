@@ -198,7 +198,10 @@ begin
     procedure (Erro: TClass; Mensagem: String)
     begin
       if Erro = ErroAutenticar then
-        raise Exception.Create(Mensagem);
+        raise Exception.Create(Mensagem)
+      else
+      if Erro = ErroReconectar then
+        raise Exception.Create(Mensagem)
     end
   );
 
