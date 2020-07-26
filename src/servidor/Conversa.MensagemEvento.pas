@@ -73,7 +73,8 @@ begin
     '     , incluido_id '+
     '     ) '+
     'values '+
-    '     ( '+ QuotedStr(Dados.GetValue<String>('[0].mensagem_id')) +
+    '     ( '+ QuotedStr(Dados.GetValue<String>('[0].usuario_id')) +
+    '     , '+ QuotedStr(Dados.GetValue<String>('[0].mensagem_id')) +
     '     , '+ QuotedStr(Dados.GetValue<String>('[0].tipo')) +
     '     , '+ IntToStr(Usuario) +
     '     ); '+

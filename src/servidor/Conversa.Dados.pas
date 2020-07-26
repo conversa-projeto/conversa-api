@@ -33,7 +33,6 @@ uses
   IdContext,
   Conversa.Comando,
   Conversa.Consulta,
-  Conversa.Insere,
   Conversa.WebSocket;
 
 type

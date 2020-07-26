@@ -11,182 +11,9 @@ object ConversaVCL: TConversaVCL
   Font.Name = 'Tahoma'
   Font.Style = []
   OldCreateOrder = False
+  OnShow = FormShow
   PixelsPerInch = 96
   TextHeight = 13
-  object pgcConversa: TPageControl
-    Left = 0
-    Top = 30
-    Width = 814
-    Height = 502
-    ActivePage = tshPerfil
-    Align = alClient
-    TabOrder = 0
-    OnChange = pgcConversaChange
-    ExplicitTop = 34
-    object tshPerfil: TTabSheet
-      Caption = 'Perfil'
-      object dbgridPerfil: TDBGrid
-        Left = 0
-        Top = 0
-        Width = 806
-        Height = 474
-        Align = alClient
-        DataSource = srcPerfil
-        TabOrder = 0
-        TitleFont.Charset = DEFAULT_CHARSET
-        TitleFont.Color = clWindowText
-        TitleFont.Height = -11
-        TitleFont.Name = 'Tahoma'
-        TitleFont.Style = []
-        Columns = <
-          item
-            Expanded = False
-            FieldName = 'id'
-            Width = 100
-            Visible = True
-          end
-          item
-            Expanded = False
-            FieldName = 'descricao'
-            Width = 100
-            Visible = True
-          end
-          item
-            Expanded = False
-            FieldName = 'incluido_id'
-            Width = 100
-            Visible = True
-          end
-          item
-            Expanded = False
-            FieldName = 'incluido_em'
-            Width = 100
-            Visible = True
-          end
-          item
-            Expanded = False
-            FieldName = 'alterado_id'
-            Width = 100
-            Visible = True
-          end
-          item
-            Expanded = False
-            FieldName = 'alterado_em'
-            Width = 100
-            Visible = True
-          end
-          item
-            Expanded = False
-            FieldName = 'excluido_id'
-            Width = 100
-            Visible = True
-          end
-          item
-            Expanded = False
-            FieldName = 'excluido_em'
-            Width = 100
-            Visible = True
-          end>
-      end
-    end
-    object tshUsuario: TTabSheet
-      Caption = 'Usu'#225'rio'
-      ImageIndex = 1
-      object DBGrid1: TDBGrid
-        Left = 0
-        Top = 0
-        Width = 806
-        Height = 474
-        Align = alClient
-        DataSource = srcUsuario
-        TabOrder = 0
-        TitleFont.Charset = DEFAULT_CHARSET
-        TitleFont.Color = clWindowText
-        TitleFont.Height = -11
-        TitleFont.Name = 'Tahoma'
-        TitleFont.Style = []
-        Columns = <
-          item
-            Expanded = False
-            FieldName = 'id'
-            Width = 100
-            Visible = True
-          end
-          item
-            Expanded = False
-            FieldName = 'nome'
-            Width = 100
-            Visible = True
-          end
-          item
-            Expanded = False
-            FieldName = 'apelido'
-            Width = 100
-            Visible = True
-          end
-          item
-            Expanded = False
-            FieldName = 'email'
-            Width = 100
-            Visible = True
-          end
-          item
-            Expanded = False
-            FieldName = 'usuario'
-            Width = 100
-            Visible = True
-          end
-          item
-            Expanded = False
-            FieldName = 'senha'
-            Width = 100
-            Visible = True
-          end
-          item
-            Expanded = False
-            FieldName = 'perfil_id'
-            Width = 100
-            Visible = True
-          end
-          item
-            Expanded = False
-            FieldName = 'incluido_id'
-            Width = 100
-            Visible = True
-          end
-          item
-            Expanded = False
-            FieldName = 'incluido_em'
-            Width = 100
-            Visible = True
-          end
-          item
-            Expanded = False
-            FieldName = 'alterado_id'
-            Width = 100
-            Visible = True
-          end
-          item
-            Expanded = False
-            FieldName = 'alterado_em'
-            Width = 100
-            Visible = True
-          end
-          item
-            Expanded = False
-            FieldName = 'excluido_id'
-            Width = 100
-            Visible = True
-          end
-          item
-            Expanded = False
-            FieldName = 'excluido_em'
-            Width = 100
-            Visible = True
-          end>
-      end
-    end
-  end
   object Panel1: TPanel
     Left = 0
     Top = 0
@@ -195,7 +22,7 @@ object ConversaVCL: TConversaVCL
     Align = alTop
     BevelKind = bkTile
     BevelOuter = bvNone
-    TabOrder = 1
+    TabOrder = 0
     object btnInserir: TButton
       Left = 75
       Top = 0
@@ -206,7 +33,7 @@ object ConversaVCL: TConversaVCL
       TabOrder = 0
       OnClick = btnInserirClick
     end
-    object Button2: TButton
+    object btnPostar: TButton
       Left = 225
       Top = 0
       Width = 75
@@ -214,7 +41,7 @@ object ConversaVCL: TConversaVCL
       Align = alLeft
       Caption = 'Postar'
       TabOrder = 1
-      OnClick = Button2Click
+      OnClick = btnPostarClick
     end
     object btnObter: TButton
       Left = 0
@@ -226,7 +53,7 @@ object ConversaVCL: TConversaVCL
       TabOrder = 2
       OnClick = btnObterClick
     end
-    object Button1: TButton
+    object btnAlterar: TButton
       Left = 150
       Top = 0
       Width = 75
@@ -234,9 +61,9 @@ object ConversaVCL: TConversaVCL
       Align = alLeft
       Caption = 'Alterar'
       TabOrder = 3
-      OnClick = Button1Click
+      OnClick = btnAlterarClick
     end
-    object Button3: TButton
+    object btnExcluir: TButton
       Left = 300
       Top = 0
       Width = 75
@@ -244,17 +71,56 @@ object ConversaVCL: TConversaVCL
       Align = alLeft
       Caption = 'Excluir'
       TabOrder = 4
-      OnClick = Button3Click
+      OnClick = btnExcluirClick
     end
   end
-  object srcPerfil: TDataSource
-    DataSet = Dados.cdsPerfil
-    Left = 472
-    Top = 1
+  object dbgridTabela: TDBGrid
+    Left = 281
+    Top = 30
+    Width = 533
+    Height = 502
+    Align = alClient
+    DataSource = srcTabela
+    TabOrder = 1
+    TitleFont.Charset = DEFAULT_CHARSET
+    TitleFont.Color = clWindowText
+    TitleFont.Height = -11
+    TitleFont.Name = 'Tahoma'
+    TitleFont.Style = []
   end
-  object srcUsuario: TDataSource
-    DataSet = Dados.cdsUsuario
-    Left = 536
+  object vledtTabelas: TValueListEditor
+    Left = 0
+    Top = 30
+    Width = 281
+    Height = 502
+    Align = alLeft
+    Options = [goFixedHorzLine, goVertLine, goHorzLine, goColSizing, goRowSelect, goThumbTracking]
+    Strings.Strings = (
+      'anexo_tipo=cdsAnexoTipo'
+      'contato=cdsContato'
+      'conversa=cdsConversa'
+      'conversa_tipo=cdsConversaTp'
+      'conversa_usuario=cdsConversaUsuario'
+      'mensagem=cdsMensagem'
+      'mensagem_anexo=cdsMensagemAnexo'
+      'mensagem_confirmacao=cdsMensagemConf'
+      'mensagem_evento=cdsMensagemEvento'
+      'mensagem_evento_tipo=cdsMensagemEventoTp'
+      'perfil=cdsPerfil'
+      'usuario=cdsUsuario')
+    TabOrder = 2
+    TitleCaptions.Strings = (
+      'Tabela'
+      'Componente')
+    OnClick = vledtTabelasClick
+    ExplicitLeft = -6
+    ExplicitTop = 34
+    ColWidths = (
+      133
+      142)
+  end
+  object srcTabela: TDataSource
+    Left = 472
     Top = 1
   end
 end

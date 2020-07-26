@@ -21,34 +21,28 @@ uses
   Vcl.ComCtrls,
   Vcl.StdCtrls,
   Vcl.ExtCtrls,
+  Vcl.ValEdit,
   Conversa.Dados,
   Conversa.DataSet;
 
 type
   TConversaVCL = class(TForm)
-    srcPerfil: TDataSource;
-    pgcConversa: TPageControl;
-    tshPerfil: TTabSheet;
-    dbgridPerfil: TDBGrid;
+    srcTabela: TDataSource;
     Panel1: TPanel;
     btnInserir: TButton;
-    Button2: TButton;
+    btnPostar: TButton;
     btnObter: TButton;
-    Button1: TButton;
-    Button3: TButton;
-    tshUsuario: TTabSheet;
-    DBGrid1: TDBGrid;
-    srcUsuario: TDataSource;
+    btnAlterar: TButton;
+    btnExcluir: TButton;
+    dbgridTabela: TDBGrid;
+    vledtTabelas: TValueListEditor;
     procedure btnInserirClick(Sender: TObject);
     procedure btnObterClick(Sender: TObject);
-    procedure Button2Click(Sender: TObject);
-    procedure Button1Click(Sender: TObject);
-    procedure Button3Click(Sender: TObject);
-    procedure pgcConversaChange(Sender: TObject);
-  private
-    FDataSet: TClientDataSet;
-  public
-    { Public declarations }
+    procedure btnPostarClick(Sender: TObject);
+    procedure btnAlterarClick(Sender: TObject);
+    procedure btnExcluirClick(Sender: TObject);
+    procedure vledtTabelasClick(Sender: TObject);
+    procedure FormShow(Sender: TObject);
   end;
 
 var
@@ -63,35 +57,37 @@ uses
 
 procedure TConversaVCL.btnObterClick(Sender: TObject);
 begin
-  FDataSet.WSOpen;
+  TClientDataSet(srcTabela.DataSet).WSOpen;
 end;
 
 procedure TConversaVCL.btnInserirClick(Sender: TObject);
 begin
-  FDataSet.WSAppend;
+  TClientDataSet(srcTabela.DataSet).WSAppend;
 end;
 
-procedure TConversaVCL.Button1Click(Sender: TObject);
+procedure TConversaVCL.btnAlterarClick(Sender: TObject);
 begin
-  FDataSet.WSEdit;
+  TClientDataSet(srcTabela.DataSet).WSEdit;
 end;
 
-procedure TConversaVCL.Button2Click(Sender: TObject);
+procedure TConversaVCL.btnPostarClick(Sender: TObject);
 begin
-  FDataSet.WSPost;
+  TClientDataSet(srcTabela.DataSet).WSPost;
 end;
 
-procedure TConversaVCL.Button3Click(Sender: TObject);
+procedure TConversaVCL.btnExcluirClick(Sender: TObject);
 begin
-  FDataSet.WSDelete;
+  TClientDataSet(srcTabela.DataSet).WSDelete;
 end;
 
-procedure TConversaVCL.pgcConversaChange(Sender: TObject);
+procedure TConversaVCL.vledtTabelasClick(Sender: TObject);
 begin
-  case pgcConversa.ActivePageIndex of
-    0: FDataSet := Dados.cdsPerfil;
-    1: FDataSet := Dados.cdsUsuario;
-  end;
+  srcTabela.DataSet := TClientDataSet(Dados.FindComponent(vledtTabelas.Values[vledtTabelas.Keys[vledtTabelas.Row]]))
+end;
+
+procedure TConversaVCL.FormShow(Sender: TObject);
+begin
+  vledtTabelasClick(vledtTabelas);
 end;
 
 end.

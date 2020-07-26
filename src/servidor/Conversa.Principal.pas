@@ -60,6 +60,8 @@ begin
     WebSocket.Port(82);
     WebSocket.Start;
 
+    Writeln('Servidor iniciado na porta: ', WebSocket.Port);
+
     while True do
       Readln;
   finally

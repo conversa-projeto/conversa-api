@@ -51,6 +51,7 @@ uses
   System.RTTI,
   System.Generics.Collections,
   System.DateUtils,
+  System.NetEncoding,
   IdURI;
 
 { TClientDataSet }
@@ -60,10 +61,10 @@ var
   I: Integer;
 begin
   if not Self.ProviderName.IsEmpty then
-    raise Exception.Create(Self.Name +': REST só disponível para ClientDataSet temporário!');
+    raise Exception.Create(Self.Name +': recurso disponível somente para ClientDataSet temporário!');
 
   if sTabela.IsEmpty then
-    raise Exception.Create('Erro ao obter o nome da tabela!');
+    raise Exception.Create('Tabela não informada!');
 
   Result := Self;
 
@@ -104,8 +105,9 @@ begin
     cmdRequisicao.Dados.AddElement(TJSONObject(oJSON.Clone));
     cmdRetorno := TComando.Create(FWebSocket.EnviaAguarda(cmdRequisicao.Texto));
     try
-      if cmdRetorno.Dados.Count = 0 then
-        raise Exception.Create('Erro ao inserir!');
+      // Trata erro
+      if not cmdRetorno.Erro.Classe.IsEmpty then
+        raise Exception.Create('Erro ao inserir!'+ sl + cmdRetorno.Erro.Classe + sl + cmdRetorno.Erro.Mensagem);
       Result := TJSONObject(cmdRetorno.Dados.Items[0].Clone);
     finally
       FreeAndNil(cmdRetorno);
@@ -127,6 +129,9 @@ begin
       consulta.ParaArray(cmdRequisicao.Dados);
     cmdRetorno := TComando.Create(FWebSocket.EnviaAguarda(cmdRequisicao.Texto));
     try
+      // Trata erro
+      if not cmdRetorno.Erro.Classe.IsEmpty then
+        raise Exception.Create('Erro ao obter!'+ sl + cmdRetorno.Erro.Classe + sl + cmdRetorno.Erro.Mensagem);
       Result := TJSONArray(cmdRetorno.Dados.Clone);
     finally
       FreeAndNil(cmdRetorno);
@@ -148,8 +153,9 @@ begin
     cmdRequisicao.Dados.AddElement(TJSONObject(oJSON.Clone));
     cmdRetorno := TComando.Create(FWebSocket.EnviaAguarda(cmdRequisicao.Texto));
     try
-      if cmdRetorno.Dados.Count = 0 then
-        raise Exception.Create('Erro ao alterar!');
+      // Trata erro
+      if not cmdRetorno.Erro.Classe.IsEmpty then
+        raise Exception.Create('Erro ao alterar!'+ sl + cmdRetorno.Erro.Classe + sl + cmdRetorno.Erro.Mensagem);
       Result := TJSONObject(cmdRetorno.Dados.Items[0].Clone);
     finally
       FreeAndNil(cmdRetorno);
@@ -170,6 +176,9 @@ begin
     cmdRequisicao.Dados.AddElement(TJSONObject.Create.AddPair('id', TJSONNumber.Create(Self.FieldByName('id').AsInteger)));
     cmdRetorno := TComando.Create(FWebSocket.EnviaAguarda(cmdRequisicao.Texto));
     try
+      // Trata erro
+      if not cmdRetorno.Erro.Classe.IsEmpty then
+        raise Exception.Create('Erro ao excluir!'+ sl + cmdRetorno.Erro.Classe + sl + cmdRetorno.Erro.Mensagem);
     finally
       FreeAndNil(cmdRetorno);
     end;
@@ -311,6 +320,9 @@ begin
                 if not(DField is TTimeField) and
                   ((DField is TDateTimeField) or (DField is TSQLTimeStampField)) then
                   DField.Value := ISO8601ToDate(oJSONCEL.JsonValue.Value)
+                else
+                if DField is TBlobField then
+                  TBlobField(DField).Value := TNetEncoding.Base64.DecodeStringToBytes(oJSONCEL.JsonValue.Value)
                 else
                   DField.AsString := oJSONCEL.JsonValue.Value;
               end;

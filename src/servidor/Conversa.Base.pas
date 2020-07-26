@@ -10,7 +10,7 @@ uses
   System.Generics.Collections,
   FireDAC.Comp.Client,
   Conversa.Consulta,
-  Conversa.Comando;
+  Data.DB;
 
 type
   TBase = class
@@ -24,6 +24,9 @@ type
     destructor Destroy; override;
     function TabelaParaJSONObject(qry: TFDQuery): TJSONObject;
     function ObtemUsuario(iID: Int64): TJSONObject;
+    procedure ObterBase(sTabela: String; var jaSaida: TJSONArray);
+    function AlterarBase(sTabela: String): TJSONObject;
+    function ExcluirBase(sTabela: String): TJSONObject;
     property Usuario: Int64 read FUsuario write FUsuario;
     property Dados: TJSONArray read FjaDados write FjaDados;
     property Conexao: TFDConnection read FConexao write FConexao;
@@ -34,8 +37,8 @@ implementation
 
 uses
   System.StrUtils,
-  Data.DB,
-  System.DateUtils;
+  System.DateUtils,
+  System.NetEncoding;
 
 { TBase }
 
@@ -99,8 +102,121 @@ begin
     if (field is TDateTimeField) or (field is TSQLTimeStampField) then
       Result.AddPair(field.FieldName, DateToISO8601(field.AsDateTime))
     else
-      raise Exception.Create('TPerfil: Tipo do campo não esperado!'+ sLineBreak +'Campo: '+ field.FieldName);
+    if field is TBlobField then
+      Result.AddPair(field.FieldName, TNetEncoding.Base64.EncodeBytesToString(TBlobField(field).Value))
+    else
+      raise Exception.Create('TBase: Tipo do campo não esperado!'+ sLineBreak +'Campo: '+ field.FieldName);
   end;
+end;
+
+procedure TBase.ObterBase(sTabela: String; var jaSaida: TJSONArray);
+var
+  consulta: TConsulta;
+  sTexto: String;
+begin
+  consulta := TConsulta.Create(Dados);
+  try
+    sTexto := consulta.Texto;
+    QryDados.Close;
+    QryDados.Open(
+      'select * '+
+      '  from '+ sTabela +
+      ' where excluido_id is null '+
+      IfThen(not sTexto.IsEmpty, '   and '+ sTexto)
+    );
+    QryDados.First;
+    while not QryDados.Eof do
+    begin
+      jaSaida.AddElement(TabelaParaJSONObject(QryDados));
+      QryDados.Next;
+    end;
+  finally
+    FreeAndNil(consulta);
+  end;
+end;
+
+function TBase.AlterarBase(sTabela: String): TJSONObject;
+var
+  I: Integer;
+begin
+  QryDados.Close;
+  QryDados.Open(
+    'select * '+
+    '  from '+ sTabela +
+    ' where id = '+ QuotedStr(Dados.GetValue<String>('[0].id'))
+  );
+
+  if QryDados.IsEmpty then
+    raise Exception.Create('Erro ao localizar o registro para exclusão!');
+
+  if not QryDados.FieldByName('excluido_id').IsNull then
+  begin
+    with ObtemUsuario(QryDados.FieldByName('excluido_id').AsInteger) do
+    try
+      raise Exception.Create('Registro já excluido por "'+ GetValue('apelido').Value +'" em "'+ QryDados.FieldByName('excluido_em').AsString +'"!');
+    finally
+      Free;
+    end;
+  end;
+
+  QryDados.Edit;
+
+  with TJSONObject(Dados.Items[0]) do
+  begin
+    for I := 0 to Pred(Count) do
+    begin
+      if MatchStr(Pairs[I].JsonString.Value, ['id', 'incluido_id', 'incluido_em', 'alterado_id', 'alterado_em', 'excluido_id', 'excluido_em']) then
+        Continue
+      else
+      if Pairs[I].JsonValue is TJSONString then
+        QryDados.FieldByName(Pairs[I].JsonString.Value).AsString := TJSONString(Pairs[I].JsonValue).Value
+      else
+      if Pairs[I].JsonValue is TJSONNumber then
+        QryDados.FieldByName(Pairs[I].JsonString.Value).AsFloat := TJSONNumber(Pairs[I].JsonValue).AsDouble
+      else
+      if Pairs[I].JsonValue is TJSONBool then
+        QryDados.FieldByName(Pairs[I].JsonString.Value).AsBoolean := TJSONBool(Pairs[I].JsonValue).AsBoolean
+      else
+      if Pairs[I].JsonValue is TJSONNull then
+        QryDados.FieldByName(Pairs[I].JsonString.Value).Clear
+    end;
+  end;
+
+  QryDados.FieldByName('alterado_id').AsLargeInt := Usuario;
+  QryDados.FieldByName('alterado_em').AsDateTime := Now;
+  QryDados.Post;
+
+  Result := TJSONObject.Create;
+end;
+
+function TBase.ExcluirBase(sTabela: String): TJSONObject;
+begin
+  QryDados.Close;
+  QryDados.Open(
+    'select * '+
+    '  from '+ sTabela +
+    ' where id = '+ QuotedStr(Dados.GetValue<String>('[0].id'))
+  );
+
+  if QryDados.IsEmpty then
+    raise Exception.Create('Erro ao localizar o registro para exclusão!');
+
+  if not QryDados.FieldByName('excluido_id').IsNull then
+  begin
+    with ObtemUsuario(QryDados.FieldByName('excluido_id').AsInteger) do
+    try
+      raise Exception.Create('Registro já excluido por "'+ GetValue('apelido').Value +'" em "'+ QryDados.FieldByName('excluido_em').AsString +'"!');
+    finally
+      Free;
+    end;
+  end;
+
+  QryDados.Edit;
+  QryDados.FieldByName('excluido_id').AsLargeInt := Usuario;
+  QryDados.FieldByName('excluido_em').AsDateTime := Now;
+  QryDados.Post;
+
+  Result := TJSONObject.Create;
 end;
 
 end.

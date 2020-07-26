@@ -3,7 +3,6 @@
    - Exemplo de uma chamada do cliente para o servidor ou do servidor para o cliente
 {
   "recurso": "conversa.mensagem", // (classe, tabela, diretorio) local do recurso - obrigatorio
-  "metodo": "obter",              // (criar, obter, alterar, remover) acao solicitada - obrigatorio
   "dados": [                      // lista dos dados da requisicao - opcional
     {
       "campo": "id",
@@ -22,14 +21,12 @@
    - Nenhuma requisição do servidor ao cliente deve ter resposta
 {
   "recurso": "conversa.mensagem", // (classe, tabela, diretorio) local do recurso que foi solicitado (não alterado) - obrigatorio
-  "metodo": "obter",              // (criar, obter, alterar, remover) acao executada (não alterado) - obrigatorio
   "dados": [3, 2, 1]              // lista dos dados da resposta - opcional
 }
 
   - Caso ocorra erro no servidor, será retornado
 {
   "recurso": "conversa.mensagem", // (classe, tabela, diretorio) local do recurso que foi solicitado (não alterado) - obrigatorio
-  "metodo": "obter",              // (criar, obter, alterar, remover) acao executada (não alterado) - obrigatorio
   "erro": [                       // par identificador do erro, o servidor não tratará erros vindos do usuário
     {
       "classe": "TException",           // classe do erro
@@ -154,6 +151,13 @@ begin
     end;
 
     FRecurso := oComando.GetValue('recurso').Value;
+
+    if Assigned(oComando.GetValue('erro')) then
+    begin
+      Erro.Classe   := oComando.GetValue<String>('erro.classe');
+      Erro.Mensagem := oComando.GetValue<String>('erro.mensagem');
+      Exit;
+    end;
 
     if Assigned(FjaDados) then
       FreeAndNil(FjaDados);

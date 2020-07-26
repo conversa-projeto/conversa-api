@@ -108,7 +108,6 @@
         <DCCReference Include="src\comum\Conversa.Comando.pas"/>
         <DCCReference Include="src\servidor\Conversa.Principal.pas"/>
         <DCCReference Include="src\comum\Conversa.Consulta.pas"/>
-        <DCCReference Include="src\comum\Conversa.Insere.pas"/>
         <DCCReference Include="src\servidor\Conversa.Base.pas"/>
         <DCCReference Include="src\servidor\Conversa.Perfil.pas"/>
         <DCCReference Include="src\servidor\Conversa.Usuario.pas"/>
