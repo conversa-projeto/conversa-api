@@ -21,9 +21,7 @@ type
 implementation
 
 uses
-  System.StrUtils,
-  Data.DB,
-  System.DateUtils;
+  System.StrUtils;
 
 { TConversaTipo }
 

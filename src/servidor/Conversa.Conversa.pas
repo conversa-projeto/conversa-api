@@ -15,7 +15,7 @@ type
   TConversa = class(TBase)
   public
     function Incluir: TJSONObject;
-    class procedure Rotas(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64);
+    class procedure Rotas(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64; var aiEnvolvidos: TArray<Int64>);
   end;
 
 implementation
@@ -25,7 +25,7 @@ uses
 
 { TConversa }
 
-class procedure TConversa.Rotas(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64);
+class procedure TConversa.Rotas(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64; var aiEnvolvidos: TArray<Int64>);
 const
   RotaConversa: Array[0..3] of String = ('conversa.incluir', 'conversa.obter', 'conversa.alterar', 'conversa.excluir');
 var
@@ -46,6 +46,15 @@ begin
           2: cmdResposta.Dados.AddElement(AlterarBase('conversa'));
           3: cmdResposta.Dados.AddElement(ExcluirBase('conversa'));
         end;
+        Envolvidos(
+          aiEnvolvidos,
+          'select usuario_id '+
+          '  from conversa '+
+          ' inner '+
+          '  join conversa_usuario '+
+          '    on conversa_usuario.conversa_id = conversa.id '+
+          ' where conversa.id = '
+        );
       finally
         Free;
       end;
@@ -70,7 +79,10 @@ begin
     '     ); '+
     'select LAST_INSERT_ID() as id '
   );
-  Result := TJSONObject.Create.AddPair('id', TJSONNumber.Create(QryDados.FieldByName('id').AsLargeInt));
+
+  Identificador := QryDados.FieldByName('id').AsLargeInt;
+
+  Result := TJSONObject.Create.AddPair('id', TJSONNumber.Create(Identificador));
 end;
 
 end.

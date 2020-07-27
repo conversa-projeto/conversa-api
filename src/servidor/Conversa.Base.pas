@@ -19,6 +19,7 @@ type
     FjaDados: TJSONArray;
     FConexao: TFDConnection;
     FQryDados: TFDQuery;
+    FIDTabela: Int64;
   public
     constructor Create(jaDados: TJSONArray; Conexao: TFDConnection; Usuario: Int64);
     destructor Destroy; override;
@@ -27,10 +28,12 @@ type
     procedure ObterBase(sTabela: String; var jaSaida: TJSONArray);
     function AlterarBase(sTabela: String): TJSONObject;
     function ExcluirBase(sTabela: String): TJSONObject;
+    procedure Envolvidos(var aiEnvolvidos: TArray<Int64>; const sConsulta: String);
     property Usuario: Int64 read FUsuario write FUsuario;
     property Dados: TJSONArray read FjaDados write FjaDados;
     property Conexao: TFDConnection read FConexao write FConexao;
     property QryDados: TFDQuery read FQryDados write FQryDados;
+    property Identificador: Int64 read FIDTabela write FIDTabela;
   end;
 
 implementation
@@ -49,6 +52,7 @@ begin
   FQryDados.Connection := FConexao;
   FjaDados := TJSONArray(jaDados.Clone);
   FUsuario := Usuario;
+  Identificador := -1;
 end;
 
 destructor TBase.Destroy;
@@ -159,6 +163,8 @@ begin
     end;
   end;
 
+  Identificador := Dados.GetValue<Int64>('[0].id');
+
   QryDados.Edit;
 
   with TJSONObject(Dados.Items[0]) do
@@ -211,12 +217,30 @@ begin
     end;
   end;
 
+  Identificador := Dados.GetValue<Int64>('[0].id');
+
   QryDados.Edit;
   QryDados.FieldByName('excluido_id').AsLargeInt := Usuario;
   QryDados.FieldByName('excluido_em').AsDateTime := Now;
   QryDados.Post;
 
   Result := TJSONObject.Create;
+end;
+
+procedure TBase.Envolvidos(var aiEnvolvidos: TArray<Int64>; const sConsulta: String);
+begin
+  if Identificador = - 1 then
+    Exit;
+  QryDados.Close;
+  QryDados.Open(sConsulta + IntToStr(Identificador));
+  if QryDados.IsEmpty then
+    Exit;
+  SetLength(aiEnvolvidos, QryDados.RecordCount);
+  while not QryDados.Eof do
+  begin
+    aiEnvolvidos[Pred(QryDados.RecNo)] := QryDados.FieldByName('usuario_id').AsLargeInt;
+    QryDados.Next;
+  end;
 end;
 
 end.
