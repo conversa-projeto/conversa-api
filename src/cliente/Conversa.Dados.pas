@@ -146,10 +146,11 @@ type
     cdsMensagemEventoTpexcluido_em: TDateTimeField;
     procedure DataModuleCreate(Sender: TObject);
   private
-    WebSocket: TWebSocketClient;
     procedure AoReceber(W: TWebSocketClient; S: String);
   public
-    { Public declarations }
+    WebSocket: TWebSocketClient;
+    Usuario: String;
+    Senha: String;
   end;
 
 var
@@ -158,6 +159,7 @@ var
 implementation
 
 uses
+  Vcl.Dialogs,
   System.JSON,
   System.Generics.Collections,
   Conversa.Comando,
@@ -174,7 +176,7 @@ begin
   cmdNotificacao := TComando.Create;
   try
     cmdNotificacao.Texto := S;
-    Writeln(cmdNotificacao.Texto);
+    ShowMessage(cmdNotificacao.Texto);
   finally
     FreeAndNil(cmdNotificacao);
   end;
@@ -190,8 +192,8 @@ begin
     begin
       Result :=
         TJSONObject.Create
-          .AddPair('usuario', 'eduardo')
-          .AddPair('senha',   '123456');
+          .AddPair('usuario', Usuario)
+          .AddPair('senha',   Senha);
     end
   );
   WebSocket.AoErro(

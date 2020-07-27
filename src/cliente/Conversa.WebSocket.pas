@@ -54,10 +54,10 @@ type
     FMetodoErro: TProc<TClass, String>;
     FUpgraded: Boolean;
     FAutenticado: Boolean;
+    FIDUsuario: Int64;
     FResultado: String;
     FTerminou: Boolean;
     function Gatilho(s: String): Boolean;
-    procedure Autenticacao;
   protected
     lInternalLock: TCriticalSection;
     lClosingEventLocalHandshake: Boolean;
@@ -80,6 +80,7 @@ type
     property OnUpgrade: TnotifyEvent read FOnUpgrade write FOnUpgrade;
     property HeartBeatInterval: Cardinal read FHeartBeatInterval write FHeartBeatInterval;
     property URL: String read FURL write FURL;
+    property IDUsuario: Int64 read FIDUsuario write FIDUsuario;
   public
     procedure Conectar(sURL: String);
     procedure Close;
@@ -89,6 +90,7 @@ type
     function AoErro(M: TProc<TClass, String>): TWebSocketClient;
     procedure Enviar(sMsg: String);
     function EnviaAguarda(sMsg: String): String;
+    procedure Autenticacao;
     constructor Create(AOwner: TComponent);
     destructor Destroy; override;
 end;
@@ -558,7 +560,9 @@ begin
       cmdResposta := TComando.Create(EnviaAguarda(cmdRequisicao.Texto));
       try
         FAutenticado := cmdResposta.Dados.GetValue<Boolean>('[0].autenticado');
-        if not FAutenticado then
+        if FAutenticado then
+          FIDUsuario := cmdResposta.Dados.GetValue<Int64>('[0].id')
+        else
           if Assigned(FMetodoErro) then
             FMetodoErro(ErroAutenticar, cmdResposta.Dados.GetValue<String>('[0].motivo'))
           else

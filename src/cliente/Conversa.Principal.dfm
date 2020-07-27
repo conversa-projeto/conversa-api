@@ -1,4 +1,4 @@
-object ConversaVCL: TConversaVCL
+object Principal: TPrincipal
   Left = 0
   Top = 0
   Caption = 'Conversa VCL Testador'
@@ -11,12 +11,13 @@ object ConversaVCL: TConversaVCL
   Font.Name = 'Tahoma'
   Font.Style = []
   OldCreateOrder = False
+  Position = poScreenCenter
   OnShow = FormShow
   PixelsPerInch = 96
   TextHeight = 13
   object Panel1: TPanel
     Left = 0
-    Top = 0
+    Top = 30
     Width = 814
     Height = 30
     Align = alTop
@@ -76,9 +77,9 @@ object ConversaVCL: TConversaVCL
   end
   object dbgridTabela: TDBGrid
     Left = 281
-    Top = 30
+    Top = 60
     Width = 533
-    Height = 502
+    Height = 472
     Align = alClient
     DataSource = srcTabela
     TabOrder = 1
@@ -90,9 +91,9 @@ object ConversaVCL: TConversaVCL
   end
   object vledtTabelas: TValueListEditor
     Left = 0
-    Top = 30
+    Top = 60
     Width = 281
-    Height = 502
+    Height = 472
     Align = alLeft
     Options = [goFixedHorzLine, goVertLine, goHorzLine, goColSizing, goRowSelect, goThumbTracking]
     Strings.Strings = (
@@ -113,11 +114,19 @@ object ConversaVCL: TConversaVCL
       'Tabela'
       'Componente')
     OnClick = vledtTabelasClick
-    ExplicitLeft = -6
-    ExplicitTop = 34
     ColWidths = (
       133
       142)
+  end
+  object pnlUsuario: TPanel
+    Left = 0
+    Top = 0
+    Width = 814
+    Height = 30
+    Align = alTop
+    BevelKind = bkTile
+    BevelOuter = bvNone
+    TabOrder = 3
   end
   object srcTabela: TDataSource
     Left = 472

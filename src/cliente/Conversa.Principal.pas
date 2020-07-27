@@ -1,6 +1,6 @@
 ﻿// Eduardo - 21/07/2020
 
-unit Conversa.VCL;
+unit Conversa.Principal;
 
 interface
 
@@ -26,7 +26,7 @@ uses
   Conversa.DataSet;
 
 type
-  TConversaVCL = class(TForm)
+  TPrincipal = class(TForm)
     srcTabela: TDataSource;
     Panel1: TPanel;
     btnInserir: TButton;
@@ -36,6 +36,7 @@ type
     btnExcluir: TButton;
     dbgridTabela: TDBGrid;
     vledtTabelas: TValueListEditor;
+    pnlUsuario: TPanel;
     procedure btnInserirClick(Sender: TObject);
     procedure btnObterClick(Sender: TObject);
     procedure btnPostarClick(Sender: TObject);
@@ -46,7 +47,7 @@ type
   end;
 
 var
-  ConversaVCL: TConversaVCL;
+  Principal: TPrincipal;
 
 implementation
 
@@ -55,39 +56,46 @@ uses
 
 {$R *.dfm}
 
-procedure TConversaVCL.btnObterClick(Sender: TObject);
+procedure TPrincipal.btnObterClick(Sender: TObject);
 begin
   TClientDataSet(srcTabela.DataSet).WSOpen;
 end;
 
-procedure TConversaVCL.btnInserirClick(Sender: TObject);
+procedure TPrincipal.btnInserirClick(Sender: TObject);
 begin
   TClientDataSet(srcTabela.DataSet).WSAppend;
 end;
 
-procedure TConversaVCL.btnAlterarClick(Sender: TObject);
+procedure TPrincipal.btnAlterarClick(Sender: TObject);
 begin
   TClientDataSet(srcTabela.DataSet).WSEdit;
 end;
 
-procedure TConversaVCL.btnPostarClick(Sender: TObject);
+procedure TPrincipal.btnPostarClick(Sender: TObject);
 begin
   TClientDataSet(srcTabela.DataSet).WSPost;
 end;
 
-procedure TConversaVCL.btnExcluirClick(Sender: TObject);
+procedure TPrincipal.btnExcluirClick(Sender: TObject);
 begin
   TClientDataSet(srcTabela.DataSet).WSDelete;
 end;
 
-procedure TConversaVCL.vledtTabelasClick(Sender: TObject);
+procedure TPrincipal.vledtTabelasClick(Sender: TObject);
 begin
   srcTabela.DataSet := TClientDataSet(Dados.FindComponent(vledtTabelas.Values[vledtTabelas.Keys[vledtTabelas.Row]]))
 end;
 
-procedure TConversaVCL.FormShow(Sender: TObject);
+procedure TPrincipal.FormShow(Sender: TObject);
 begin
   vledtTabelasClick(vledtTabelas);
+
+  Dados.cdsUsuario.WSOpen(
+    TConsulta.Create
+      .IgualNumero('id', Dados.WebSocket.IDUsuario)
+  );
+  pnlUsuario.Caption := Dados.cdsUsuario.FieldByName('nome').AsString;
+  Dados.cdsUsuario.WSClose;
 end;
 
 end.

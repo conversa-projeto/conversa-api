@@ -133,7 +133,7 @@ begin
     FAutenticado := FUsuario <> -1;
 
     if FAutenticado then
-      Result.AddPair('autenticado', TJSONBool.Create(True))
+      Result.AddPair('autenticado', TJSONBool.Create(True)).AddPair('id', TJSONNumber.Create(FUsuario))
     else
       Result.AddPair('autenticado', TJSONBool.Create(False)).AddPair('motivo', 'Parâmetros "usuario" ou "senha" incorretos!');
   finally

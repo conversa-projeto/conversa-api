@@ -102,8 +102,8 @@
         <DelphiCompile Include="$(MainSource)">
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
-        <DCCReference Include="Conversa.VCL.pas">
-            <Form>ConversaVCL</Form>
+        <DCCReference Include="Conversa.Principal.pas">
+            <Form>Principal</Form>
             <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="Conversa.Dados.pas">
@@ -113,6 +113,10 @@
         </DCCReference>
         <DCCReference Include="..\comum\Conversa.Consulta.pas"/>
         <DCCReference Include="..\comum\Conversa.Comando.pas"/>
+        <DCCReference Include="Conversa.Autenticacao.pas">
+            <Form>Autenticacao</Form>
+            <FormType>dfm</FormType>
+        </DCCReference>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>
@@ -139,7 +143,7 @@
                 </Excluded_Packages>
             </Delphi.Personality>
             <Deployment Version="3">
-                <DeployFile LocalName="Win32\Debug\Cliente.exe" Configuration="Debug" Class="ProjectOutput">
+                <DeployFile LocalName="bin\Cliente.exe" Configuration="Debug" Class="ProjectOutput">
                     <Platform Name="Win32">
                         <RemoteName>Cliente.exe</RemoteName>
                         <Overwrite>true</Overwrite>
