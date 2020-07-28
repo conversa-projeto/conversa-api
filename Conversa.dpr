@@ -24,7 +24,8 @@ uses
   Conversa.Mensagem in 'src\servidor\Conversa.Mensagem.pas',
   Conversa.MensagemEvento in 'src\servidor\Conversa.MensagemEvento.pas',
   Conversa.MensagemAnexo in 'src\servidor\Conversa.MensagemAnexo.pas',
-  Conversa.MensagemConfirmacao in 'src\servidor\Conversa.MensagemConfirmacao.pas';
+  Conversa.MensagemConfirmacao in 'src\servidor\Conversa.MensagemConfirmacao.pas',
+  Conversa.Configuracoes in 'src\servidor\Conversa.Configuracoes.pas';
 
 begin
   IniciarConversa;
