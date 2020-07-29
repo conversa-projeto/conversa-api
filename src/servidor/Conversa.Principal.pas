@@ -10,7 +10,8 @@ uses
   IdContext,
   IdCustomHTTPServer,
   Conversa.WebSocket,
-  Conversa.Comando;
+  Conversa.Comando,
+  Conversa.Configuracoes;
 
   procedure IniciarConversa;
 
@@ -21,8 +22,11 @@ uses
 
 procedure IniciarConversa;
 var
+  console: String;
   WebSocket: TWebSocketServer;
+  Configuracoes: TConfiguracoes;
 begin
+  Configuracoes := TConfiguracoes.Create('conversa');
   WebSocket := TWebSocketServer.Create;
   try
     WebSocket.AoReceber(
@@ -57,15 +61,20 @@ begin
       end
     );
 
-    WebSocket.Port(82);
+    // Se não foi configurada a porta, define padrão
+    if not Configuracoes.Existe['porta'] then
+      Configuracoes.Numero['porta'] := 82;
+
+    WebSocket.Porta(Round(Configuracoes.Numero['porta']));
     WebSocket.Start;
 
-    Writeln('Servidor iniciado na porta: ', WebSocket.Port);
+    Writeln('Servidor iniciado na porta: ', WebSocket.Porta);
 
-    while True do
-      Readln;
+    while console.IsEmpty do
+      Readln(console);
   finally
     FreeAndNil(WebSocket);
+    FreeAndNil(Configuracoes);
   end;
 end;
 

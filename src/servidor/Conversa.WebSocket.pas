@@ -44,8 +44,8 @@ type
     property OnExecute;
     constructor Create;
     destructor Destroy; override;
-    function Port(P: Integer): TWebSocketServer; overload;
-    function Port: Integer; overload;
+    function Porta(P: Integer): TWebSocketServer; overload;
+    function Porta: Integer; overload;
     function AoReceber(M: TProc<TIdContext, String>): TWebSocketServer; overload;
     function AoReceber: TProc<TIdContext, String>; overload;
     function SendAll(sData: String): TWebSocketServer;
@@ -126,12 +126,12 @@ begin
   Result := FMetodoReceber;
 end;
 
-function TWebSocketServer.Port: Integer;
+function TWebSocketServer.Porta: Integer;
 begin
   Result := FPort;
 end;
 
-function TWebSocketServer.Port(P: Integer): TWebSocketServer;
+function TWebSocketServer.Porta(P: Integer): TWebSocketServer;
 begin
   Result := Self;
   FPort := P;
