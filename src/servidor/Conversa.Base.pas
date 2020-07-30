@@ -107,7 +107,7 @@ begin
       Result.AddPair(field.FieldName, DateToISO8601(field.AsDateTime))
     else
     if field is TBlobField then
-      Result.AddPair(field.FieldName, TNetEncoding.Base64.EncodeBytesToString(TBlobField(field).Value))
+      Result.AddPair(field.FieldName, TEncoding.UTF8.GetString(TBlobField(field).AsBytes))
     else
       raise Exception.Create('TBase: Tipo do campo não esperado!'+ sLineBreak +'Campo: '+ field.FieldName);
   end;

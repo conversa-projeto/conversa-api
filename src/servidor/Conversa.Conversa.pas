@@ -41,7 +41,56 @@ begin
           1:
           begin
             jaDados := cmdResposta.Dados;
-            ObterBase('conversa', jaDados);
+            QryDados.Open(
+              'select conversa.id'+
+              '     , cast(if(conversa.tipo = 1, usuario.nome, conversa.descricao) as varchar(100)) as descricao'+
+              '     , conversa.tipo'+
+              '     , conversa.incluido_id'+
+              '     , conversa.incluido_em'+
+              '     , conversa.alterado_id'+
+              '     , conversa.alterado_em'+
+              '     , conversa.excluido_id'+
+              '     , conversa.excluido_em'+
+              '     , usuario.nome'+
+              '     , mensagem.id'+
+              '     , mensagem.conteudo'+
+              '     , mensagem.usuario_id'+
+              '     , mensagem.incluido_em as msg_incluido_em'+
+              '  from conversa.conversa'+
+              ' inner'+
+              '  join conversa.conversa_usuario as cvs_usuario'+
+              '    on cvs_usuario.excluido_em is null'+
+              '   and cvs_usuario.conversa_id = conversa.id'+
+              '   and cvs_usuario.usuario_id = '+ Usuario.ToString +
+              '  left'+
+              '  join conversa.usuario'+
+              '    on usuario.excluido_em is null'+
+              '   and usuario.id = ( select conversa_usuario.usuario_id'+
+              '                        from conversa.conversa_usuario'+
+              '                       where conversa_usuario.excluido_em is null'+
+              '                         and conversa_usuario.conversa_id = conversa.id'+
+              '                         and conversa_usuario.usuario_id <> '+ Usuario.ToString +')'+
+              '  left'+
+              '  join conversa.mensagem'+
+              '    on mensagem.id = (select msg.id'+
+              '                        from conversa.mensagem as msg'+
+              '                       where msg.excluido_em is null'+
+              '                         and msg.conversa_id = conversa.conversa.id'+
+              '                       order'+
+              '                          by msg.incluido_em DESC'+
+              '                       limit 1'+
+              '                      )'+
+              ' left'+
+              '  join conversa.usuario as usuario_msg'+
+              '    on usuario_msg.id = mensagem.usuario_id'+
+              ' where conversa.excluido_em is null'
+            );
+            QryDados.First;
+            while not QryDados.Eof do
+            begin
+              jaDados.AddElement(TabelaParaJSONObject(QryDados));
+              QryDados.Next;
+            end;
           end;
           2: cmdResposta.Dados.AddElement(AlterarBase('conversa'));
           3: cmdResposta.Dados.AddElement(ExcluirBase('conversa'));
