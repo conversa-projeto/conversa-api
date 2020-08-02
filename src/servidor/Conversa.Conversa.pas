@@ -38,7 +38,7 @@ begin
       try
         case IndexStr(cmdRequisicao.Recurso, RotaConversa) of
           0: cmdResposta.Dados.AddElement(Incluir);
-          1: Obter(cmdRequisicao.Dados);
+          1: Obter(cmdResposta.Dados);
           2: cmdResposta.Dados.AddElement(AlterarBase('conversa'));
           3: cmdResposta.Dados.AddElement(ExcluirBase('conversa'));
         end;
