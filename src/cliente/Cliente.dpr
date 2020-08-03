@@ -8,7 +8,9 @@ uses
   Conversa.Dados in 'Conversa.Dados.pas' {Dados: TDataModule},
   Conversa.Consulta in '..\comum\Conversa.Consulta.pas',
   Conversa.Comando in '..\comum\Conversa.Comando.pas',
-  Conversa.Autenticacao in 'Conversa.Autenticacao.pas' {Autenticacao};
+  Conversa.Autenticacao in 'Conversa.Autenticacao.pas' {Autenticacao},
+  Conversa.DataSet in 'Conversa.DataSet.pas',
+  Conversa.WebSocket in 'Conversa.WebSocket.pas';
 
 {$R *.res}
 

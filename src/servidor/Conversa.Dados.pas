@@ -43,11 +43,13 @@ type
     FContexto: TIdContext;
     FAutenticado: Boolean;
     FUsuario: Int64;
+    FRotas: TDictionary<String, TFunc<TComando, TComando, TFDConnection, Int64, TArray<Int64>>>;
     procedure NotificaEnvolvidos(const WebSocket: TWebSocketServer; const Contexto: TIdContext; const cmdResposta: TComando; const aiEnvolvidos: TArray<Int64>);
     function Autentica(cmdRequisicao: TComando): TJSONObject;
   public
     class function Dados(const Contexto: TIdContext): TConversaDados;
     constructor Create(AOwner: TComponent); override;
+    destructor Destroy; override;
     procedure Redireciona(const WebSocket: TWebSocketServer; const cmdRequisicao: TComando; var cmdResposta: TComando);
     procedure ExecutaComando(const WebSocket: TWebSocketServer; const cmdRequisicao: TComando; var cmdResposta: TComando);
   end;
@@ -87,6 +89,25 @@ constructor TConversaDados.Create(AOwner: TComponent);
 begin
   inherited;
   FAutenticado := False;
+  FRotas := TDictionary<String, TFunc<TComando, TComando, TFDConnection, Int64, TArray<Int64>>>.Create;
+  TPerfil.Registrar(FRotas);
+  TUsuario.Registrar(FRotas);
+  TContato.Registrar(FRotas);
+  TMensagemEventoTipo.Registrar(FRotas);
+  TAnexoTipo.Registrar(FRotas);
+  TConversaTipo.Registrar(FRotas);
+  TConversa.Registrar(FRotas);
+  TConversaUsuario.Registrar(FRotas);
+  TMensagem.Registrar(FRotas);
+  TMensagemEvento.Registrar(FRotas);
+  TMensagemAnexo.Registrar(FRotas);
+  TMensagemConfirmacao.Registrar(FRotas);
+end;
+
+destructor TConversaDados.Destroy;
+begin
+  FreeAndNil(FRotas);
+  inherited;
 end;
 
 procedure TConversaDados.Redireciona(const WebSocket: TWebSocketServer; const cmdRequisicao: TComando; var cmdResposta: TComando);
@@ -144,20 +165,11 @@ end;
 procedure TConversaDados.ExecutaComando(const WebSocket: TWebSocketServer; const cmdRequisicao: TComando; var cmdResposta: TComando);
 var
   aiEnvolvidos: TArray<Int64>;
+  Metodo: TFunc<TComando, TComando, TFDConnection, Int64, TArray<Int64>>;
 begin
   // Rotas
-  TPerfil.Rotas(cmdRequisicao, cmdResposta, conMariaDB, FUsuario);
-  TUsuario.Rotas(cmdRequisicao, cmdResposta, conMariaDB, FUsuario);
-  TContato.Rotas(cmdRequisicao, cmdResposta, conMariaDB, FUsuario);
-  TMensagemEventoTipo.Rotas(cmdRequisicao, cmdResposta, conMariaDB, FUsuario);
-  TAnexoTipo.Rotas(cmdRequisicao, cmdResposta, conMariaDB, FUsuario);
-  TConversaTipo.Rotas(cmdRequisicao, cmdResposta, conMariaDB, FUsuario);
-  TConversa.Rotas(cmdRequisicao, cmdResposta, conMariaDB, FUsuario, aiEnvolvidos);
-  TConversaUsuario.Rotas(cmdRequisicao, cmdResposta, conMariaDB, FUsuario, aiEnvolvidos);
-  TMensagem.Rotas(cmdRequisicao, cmdResposta, conMariaDB, FUsuario, aiEnvolvidos);
-  TMensagemEvento.Rotas(cmdRequisicao, cmdResposta, conMariaDB, FUsuario, aiEnvolvidos);
-  TMensagemAnexo.Rotas(cmdRequisicao, cmdResposta, conMariaDB, FUsuario, aiEnvolvidos);
-  TMensagemConfirmacao.Rotas(cmdRequisicao, cmdResposta, conMariaDB, FUsuario, aiEnvolvidos);
+  if FRotas.TryGetValue(cmdRequisicao.Recurso, Metodo) then
+    aiEnvolvidos := Metodo(cmdRequisicao, cmdResposta, conMariaDB, FUsuario);
 
   // Notificar todos usuários envolvidos quando há alterações nas tabelas compartilhadas
   if Length(aiEnvolvidos) > 0 then

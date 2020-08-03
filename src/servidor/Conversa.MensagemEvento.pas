@@ -9,15 +9,20 @@ uses
   System.SysUtils,
   FireDAC.Comp.Client,
   Conversa.Comando,
-  Conversa.Base;
+  Conversa.Base,
+  System.Generics.Collections;
 
 type
   TMensagemEvento = class(TBase)
+  private
+    class function IncluirMensagemEvento(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+    class function ObterMensagemEvento(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+    class function AlterarMensagemEvento(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+    class function ExcluirMensagemEvento(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+    function ConsultaEnvolvidos: String;
   public
-    function Incluir: TJSONObject;
-    class procedure Rotas(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64; var aiEnvolvidos: TArray<Int64>);
+    class procedure Registrar(Rotas: TDictionary<String, TFunc<TComando, TComando, TFDConnection, Int64, TArray<Int64>>>);
   end;
-
 implementation
 
 uses
@@ -25,69 +30,91 @@ uses
 
 { TMensagemEvento }
 
-class procedure TMensagemEvento.Rotas(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64; var aiEnvolvidos: TArray<Int64>);
-const
-  RotaMensagemEvento: Array[0..3] of String = ('mensagem_evento.incluir', 'mensagem_evento.obter', 'mensagem_evento.alterar', 'mensagem_evento.excluir');
-var
-  jaDados: TJSONArray;
+class procedure TMensagemEvento.Registrar(Rotas: TDictionary<String, TFunc<TComando, TComando, TFDConnection, Int64, TArray<Int64>>>);
 begin
-  case IndexStr(cmdRequisicao.Recurso, RotaMensagemEvento) of
-    0,1,2,3:
-    begin
-      with TMensagemEvento.Create(cmdRequisicao.Dados, Conexao, Usuario) do
-      try
-        case IndexStr(cmdRequisicao.Recurso, RotaMensagemEvento) of
-          0: cmdResposta.Dados.AddElement(Incluir);
-          1:
-          begin
-            jaDados := cmdResposta.Dados;
-            ObterBase('mensagem_evento', jaDados);
-          end;
-          2: cmdResposta.Dados.AddElement(AlterarBase('mensagem_evento'));
-          3: cmdResposta.Dados.AddElement(ExcluirBase('mensagem_evento'));
-        end;
-        Envolvidos(
-          aiEnvolvidos,
-            'select conversa_usuario.usuario_id '+
-            '  from mensagem_evento '+
-            ' inner '+
-            '  join mensagem '+
-            '    on mensagem.id = mensagem_evento.mensagem_id '+
-            ' inner '+
-            '  join conversa_usuario '+
-            '    on conversa_usuario.conversa_id = mensagem.conversa_id '+
-            ' where mensagem_evento.id = '
-        );
-      finally
-        Free;
-      end;
-    end;
+  Rotas.Add('mensagem_evento.incluir', TMensagemEvento.IncluirMensagemEvento);
+  Rotas.Add('mensagem_evento.obter',   TMensagemEvento.ObterMensagemEvento);
+  Rotas.Add('mensagem_evento.alterar', TMensagemEvento.AlterarMensagemEvento);
+  Rotas.Add('mensagem_evento.excluir', TMensagemEvento.ExcluirMensagemEvento);
+end;
+
+class function TMensagemEvento.IncluirMensagemEvento(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+begin
+  with TMensagemEvento.Create(cmdRequisicao.Dados, Conexao, Usuario) do
+  try
+    QryDados.Close;
+    QryDados.Open(
+      'insert '+
+      '  into mensagem_evento '+
+      '     ( usuario_id '+
+      '     , mensagem_id '+
+      '     , tipo '+
+      '     , incluido_id '+
+      '     ) '+
+      'values '+
+      '     ( '+ Dados.GetValue<String>('[0].usuario_id') +
+      '     , '+ Dados.GetValue<String>('[0].mensagem_id') +
+      '     , '+ Dados.GetValue<String>('[0].tipo') +
+      '     , '+ IntToStr(Usuario) +
+      '     ); '+
+      'select LAST_INSERT_ID() as id '
+    );
+    Identificador := QryDados.FieldByName('id').AsLargeInt;
+    cmdResposta.Dados.AddElement(TJSONObject.Create.AddPair('id', TJSONNumber.Create(Identificador)));
+    Envolvidos(Result, ConsultaEnvolvidos);
+  finally
+    Free;
   end;
 end;
 
-function TMensagemEvento.Incluir: TJSONObject;
+class function TMensagemEvento.ObterMensagemEvento(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+var
+  jaDados: TJSONArray;
 begin
-  QryDados.Close;
-  QryDados.Open(
-    'insert '+
-    '  into mensagem_evento '+
-    '     ( usuario_id '+
-    '     , mensagem_id '+
-    '     , tipo '+
-    '     , incluido_id '+
-    '     ) '+
-    'values '+
-    '     ( '+ QuotedStr(Dados.GetValue<String>('[0].usuario_id')) +
-    '     , '+ QuotedStr(Dados.GetValue<String>('[0].mensagem_id')) +
-    '     , '+ QuotedStr(Dados.GetValue<String>('[0].tipo')) +
-    '     , '+ IntToStr(Usuario) +
-    '     ); '+
-    'select LAST_INSERT_ID() as id '
-  );
+  with TMensagemEvento.Create(cmdRequisicao.Dados, Conexao, Usuario) do
+  try
+    jaDados := cmdResposta.Dados;
+    ObterBase('mensagem_evento', jaDados);
+    Envolvidos(Result, ConsultaEnvolvidos);
+  finally
+    Free;
+  end;
+end;
 
-  Identificador := QryDados.FieldByName('id').AsLargeInt;
+class function TMensagemEvento.AlterarMensagemEvento(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+begin
+  with TMensagemEvento.Create(cmdRequisicao.Dados, Conexao, Usuario) do
+  try
+    cmdResposta.Dados.AddElement(AlterarBase('mensagem_evento'));
+    Envolvidos(Result, ConsultaEnvolvidos);
+  finally
+    Free;
+  end;
+end;
 
-  Result := TJSONObject.Create.AddPair('id', TJSONNumber.Create(Identificador));
+class function TMensagemEvento.ExcluirMensagemEvento(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+begin
+  with TMensagemEvento.Create(cmdRequisicao.Dados, Conexao, Usuario) do
+  try
+    cmdResposta.Dados.AddElement(ExcluirBase('mensagem_evento'));
+    Envolvidos(Result, ConsultaEnvolvidos);
+  finally
+    Free;
+  end;
+end;
+
+function TMensagemEvento.ConsultaEnvolvidos: String;
+begin
+  Result :=
+    'select conversa_usuario.usuario_id '+
+    '  from mensagem_evento '+
+    ' inner '+
+    '  join mensagem '+
+    '    on mensagem.id = mensagem_evento.mensagem_id '+
+    ' inner '+
+    '  join conversa_usuario '+
+    '    on conversa_usuario.conversa_id = mensagem.conversa_id '+
+    ' where mensagem_evento.id = ';
 end;
 
 end.

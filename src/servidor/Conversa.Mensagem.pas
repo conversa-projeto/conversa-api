@@ -9,13 +9,19 @@ uses
   System.SysUtils,
   FireDAC.Comp.Client,
   Conversa.Comando,
-  Conversa.Base;
+  Conversa.Base,
+  System.Generics.Collections;
 
 type
   TMensagem = class(TBase)
+  private
+    class function IncluirMensagem(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+    class function ObterMensagem(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+    class function AlterarMensagem(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+    class function ExcluirMensagem(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+    function ConsultaEnvolvidos: String;
   public
-    function Incluir: TJSONObject;
-    class procedure Rotas(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64; var aiEnvolvidos: TArray<Int64>);
+    class procedure Registrar(Rotas: TDictionary<String, TFunc<TComando, TComando, TFDConnection, Int64, TArray<Int64>>>);
   end;
 
 implementation
@@ -25,72 +31,94 @@ uses
 
 { TMensagem }
 
-class procedure TMensagem.Rotas(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64; var aiEnvolvidos: TArray<Int64>);
-const
-  RotaMensagem: Array[0..3] of String = ('mensagem.incluir', 'mensagem.obter', 'mensagem.alterar', 'mensagem.excluir');
-var
-  jaDados: TJSONArray;
+class procedure TMensagem.Registrar(Rotas: TDictionary<String, TFunc<TComando, TComando, TFDConnection, Int64, TArray<Int64>>>);
 begin
-  case IndexStr(cmdRequisicao.Recurso, RotaMensagem) of
-    0,1,2,3:
-    begin
-      with TMensagem.Create(cmdRequisicao.Dados, Conexao, Usuario) do
-      try
-        case IndexStr(cmdRequisicao.Recurso, RotaMensagem) of
-          0: cmdResposta.Dados.AddElement(Incluir);
-          1:
-          begin
-            jaDados := cmdResposta.Dados;
-            ObterBase('mensagem', jaDados);
-          end;
-          2: cmdResposta.Dados.AddElement(AlterarBase('mensagem'));
-          3: cmdResposta.Dados.AddElement(ExcluirBase('mensagem'));
-        end;
-        Envolvidos(
-          aiEnvolvidos,
-            'select conversa_usuario.usuario_id '+
-            '  from mensagem '+
-            ' inner '+
-            '  join conversa_usuario '+
-            '    on conversa_usuario.conversa_id = mensagem.conversa_id '+
-            ' where mensagem.id = '
-        );
-      finally
-        Free;
-      end;
-    end;
+  Rotas.Add('mensagem.incluir', TMensagem.IncluirMensagem);
+  Rotas.Add('mensagem.obter',   TMensagem.ObterMensagem);
+  Rotas.Add('mensagem.alterar', TMensagem.AlterarMensagem);
+  Rotas.Add('mensagem.excluir', TMensagem.ExcluirMensagem);
+end;
+
+class function TMensagem.IncluirMensagem(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+begin
+  with TMensagem.Create(cmdRequisicao.Dados, Conexao, Usuario) do
+  try
+    QryDados.Close;
+    QryDados.Open(
+      'insert '+
+      '  into mensagem '+
+      '     ( mensagem_id '+
+      '     , usuario_id '+
+      '     , conversa_id '+
+      '     , resposta '+
+      '     , confirmacao '+
+      '     , conteudo '+
+      '     , incluido_id '+
+      '     ) '+
+      'values '+
+      '     ( '+ Dados.GetValue<String>('[0].mensagem_id') +
+      '     , '+ Dados.GetValue<String>('[0].usuario_id') +
+      '     , '+ Dados.GetValue<String>('[0].conversa_id') +
+      '     , '+ Dados.GetValue<String>('[0].resposta') +
+      '     , '+ Dados.GetValue<String>('[0].confirmacao') +
+      '     , '+ QuotedStr(Dados.GetValue<String>('[0].conteudo')) +
+      '     , '+ IntToStr(Usuario) +
+      '     ); '+
+      'select LAST_INSERT_ID() as id '
+    );
+    Identificador := QryDados.FieldByName('id').AsLargeInt;
+    cmdResposta.Dados.AddElement(TJSONObject.Create.AddPair('id', TJSONNumber.Create(Identificador)));
+    Envolvidos(Result, ConsultaEnvolvidos);
+  finally
+    Free;
   end;
 end;
 
-function TMensagem.Incluir: TJSONObject;
+class function TMensagem.ObterMensagem(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+var
+  jaDados: TJSONArray;
 begin
-  QryDados.Close;
-  QryDados.Open(
-    'insert '+
-    '  into mensagem '+
-    '     ( mensagem_id '+
-    '     , usuario_id '+
-    '     , conversa_id '+
-    '     , resposta '+
-    '     , confirmacao '+
-    '     , conteudo '+
-    '     , incluido_id '+
-    '     ) '+
-    'values '+
-    '     ( '+ QuotedStr(Dados.GetValue<String>('[0].mensagem_id')) +
-    '     , '+ QuotedStr(Dados.GetValue<String>('[0].usuario_id')) +
-    '     , '+ QuotedStr(Dados.GetValue<String>('[0].conversa_id')) +
-    '     , '+ QuotedStr(Dados.GetValue<String>('[0].resposta')) +
-    '     , '+ QuotedStr(Dados.GetValue<String>('[0].confirmacao')) +
-    '     , '+ QuotedStr(Dados.GetValue<String>('[0].conteudo')) +
-    '     , '+ IntToStr(Usuario) +
-    '     ); '+
-    'select LAST_INSERT_ID() as id '
-  );
+  with TMensagem.Create(cmdRequisicao.Dados, Conexao, Usuario) do
+  try
+    jaDados := cmdResposta.Dados;
+    ObterBase('mensagem', jaDados);
+    Envolvidos(Result, ConsultaEnvolvidos);
+  finally
+    Free;
+  end;
+end;
 
-  Identificador := QryDados.FieldByName('id').AsLargeInt;
+class function TMensagem.AlterarMensagem(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+begin
+  with TMensagem.Create(cmdRequisicao.Dados, Conexao, Usuario) do
+  try
+    cmdResposta.Dados.AddElement(AlterarBase('mensagem'));
+    Envolvidos(Result, ConsultaEnvolvidos);
+  finally
+    Free;
+  end;
+end;
 
-  Result := TJSONObject.Create.AddPair('id', TJSONNumber.Create(Identificador));
+class function TMensagem.ExcluirMensagem(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+begin
+  with TMensagem.Create(cmdRequisicao.Dados, Conexao, Usuario) do
+  try
+    cmdResposta.Dados.AddElement(ExcluirBase('mensagem'));
+    Envolvidos(Result, ConsultaEnvolvidos);
+  finally
+    Free;
+  end;
+end;
+
+function TMensagem.ConsultaEnvolvidos: String;
+begin
+  Result :=
+    'select conversa_usuario.usuario_id '+
+    '  from mensagem '+
+    ' inner '+
+    '  join conversa_usuario '+
+    '    on conversa_usuario.conversa_id = mensagem.conversa_id '+
+    ' where mensagem.id = ';
 end;
 
 end.

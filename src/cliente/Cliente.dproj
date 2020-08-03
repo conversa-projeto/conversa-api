@@ -117,6 +117,8 @@
             <Form>Autenticacao</Form>
             <FormType>dfm</FormType>
         </DCCReference>
+        <DCCReference Include="Conversa.DataSet.pas"/>
+        <DCCReference Include="Conversa.WebSocket.pas"/>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>

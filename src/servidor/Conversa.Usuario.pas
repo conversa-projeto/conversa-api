@@ -9,14 +9,19 @@ uses
   System.SysUtils,
   FireDAC.Comp.Client,
   Conversa.Comando,
-  Conversa.Base;
+  Conversa.Base,
+  System.Generics.Collections;
 
 type
   TUsuario = class(TBase)
+  private
+    class function IncluirUsuario(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+    class function ObterUsuario(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+    class function AlterarUsuario(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+    class function ExcluirUsuario(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
   public
-    function Incluir: TJSONObject;
+    class procedure Registrar(Rotas: TDictionary<String, TFunc<TComando, TComando, TFDConnection, Int64, TArray<Int64>>>);
     class function AutenticaUsuario(sUsuario, sSenha: String; Conexao: TFDConnection): Int64; static;
-    class procedure Rotas(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64);
   end;
 
 implementation
@@ -27,60 +32,78 @@ uses
 
 { TUsuario }
 
-class procedure TUsuario.Rotas(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64);
-const
-  RotaUsuario: Array[0..3] of String = ('usuario.incluir', 'usuario.obter', 'usuario.alterar', 'usuario.excluir');
-var
-  jaDados: TJSONArray;
+class procedure TUsuario.Registrar(Rotas: TDictionary<String, TFunc<TComando, TComando, TFDConnection, Int64, TArray<Int64>>>);
 begin
-  case IndexStr(cmdRequisicao.Recurso, RotaUsuario) of
-    0,1,2,3:
-    begin
-      with TUsuario.Create(cmdRequisicao.Dados, Conexao, Usuario) do
-      try
-        case IndexStr(cmdRequisicao.Recurso, RotaUsuario) of
-          0: cmdResposta.Dados.AddElement(Incluir);
-          1:
-          begin
-            jaDados := cmdResposta.Dados;
-            ObterBase('usuario', jaDados);
-          end;
-          2: cmdResposta.Dados.AddElement(AlterarBase('usuario'));
-          3: cmdResposta.Dados.AddElement(ExcluirBase('usuario'));
-        end;
-      finally
-        Free;
-      end;
-    end;
+  Rotas.Add('usuario.incluir', TUsuario.IncluirUsuario);
+  Rotas.Add('usuario.obter',   TUsuario.ObterUsuario);
+  Rotas.Add('usuario.alterar', TUsuario.AlterarUsuario);
+  Rotas.Add('usuario.excluir', TUsuario.ExcluirUsuario);
+end;
+
+class function TUsuario.IncluirUsuario(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+begin
+  with TUsuario.Create(cmdRequisicao.Dados, Conexao, Usuario) do
+  try
+    QryDados.Close;
+    QryDados.Open(
+      'insert '+
+      '  into usuario '+
+      '     ( nome '+
+      '     , apelido '+
+      '     , email '+
+      '     , usuario '+
+      '     , senha '+
+      '     , perfil_id '+
+      '     , incluido_id '+
+      '     ) '+
+      'values '+
+      '     ( '+ QuotedStr(Dados.GetValue<String>('[0].nome')) +
+      '     , '+ QuotedStr(Dados.GetValue<String>('[0].apelido')) +
+      '     , '+ QuotedStr(Dados.GetValue<String>('[0].email')) +
+      '     , '+ QuotedStr(Dados.GetValue<String>('[0].usuario')) +
+      '     , '+ QuotedStr(Dados.GetValue<String>('[0].senha')) +
+      '     , '+ Dados.GetValue<String>('[0].perfil_id') +
+      '     , '+ IntToStr(Usuario) +
+      '     ); '+
+      'select LAST_INSERT_ID() as id '
+    );
+    cmdResposta.Dados.AddElement(TJSONObject.Create.AddPair('id', TJSONNumber.Create(QryDados.FieldByName('id').AsLargeInt)));
+  finally
+    Free;
   end;
 end;
 
-function TUsuario.Incluir: TJSONObject;
+class function TUsuario.ObterUsuario(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+var
+  jaDados: TJSONArray;
 begin
-  QryDados.Close;
-  QryDados.Open(
-    'insert '+
-    '  into usuario '+
-    '     ( nome '+
-    '     , apelido '+
-    '     , email '+
-    '     , usuario '+
-    '     , senha '+
-    '     , perfil_id '+
-    '     , incluido_id '+
-    '     ) '+
-    'values '+
-    '     ( '+ QuotedStr(Dados.GetValue<String>('[0].nome')) +
-    '     , '+ QuotedStr(Dados.GetValue<String>('[0].apelido')) +
-    '     , '+ QuotedStr(Dados.GetValue<String>('[0].email')) +
-    '     , '+ QuotedStr(Dados.GetValue<String>('[0].usuario')) +
-    '     , '+ QuotedStr(Dados.GetValue<String>('[0].senha')) +
-    '     , '+ QuotedStr(Dados.GetValue<String>('[0].perfil_id')) +
-    '     , '+ IntToStr(Usuario) +
-    '     ); '+
-    'select LAST_INSERT_ID() as id '
-  );
-  Result := TJSONObject.Create.AddPair('id', TJSONNumber.Create(QryDados.FieldByName('id').AsLargeInt));
+  with TUsuario.Create(cmdRequisicao.Dados, Conexao, Usuario) do
+  try
+    jaDados := cmdResposta.Dados;
+    ObterBase('usuario', jaDados);
+  finally
+    Free;
+  end;
+end;
+
+class function TUsuario.AlterarUsuario(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+begin
+  with TUsuario.Create(cmdRequisicao.Dados, Conexao, Usuario) do
+  try
+    cmdResposta.Dados.AddElement(AlterarBase('usuario'));
+  finally
+    Free;
+  end;
+end;
+
+class function TUsuario.ExcluirUsuario(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+begin
+  with TUsuario.Create(cmdRequisicao.Dados, Conexao, Usuario) do
+  try
+    cmdResposta.Dados.AddElement(ExcluirBase('usuario'));
+  finally
+    Free;
+  end;
 end;
 
 class function TUsuario.AutenticaUsuario(sUsuario, sSenha: String; Conexao: TFDConnection): Int64;

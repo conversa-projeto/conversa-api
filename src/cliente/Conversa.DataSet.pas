@@ -441,7 +441,7 @@ begin
         Continue;
 
       // Inserção envia todos os campos
-      if (FWSState = dsEdit)                                              and  // Se for edição
+      if (FWSState = dsEdit)                                                and  // Se for edição
          (not aChanged[Self.Fields[I].Index])                               and  // Se o campo não foi alterado
          (not ((Self.Fields[I].ProviderFlags * [pfInWhere, pfInKey]) = [])) then // Se não é where nem key
         Continue;

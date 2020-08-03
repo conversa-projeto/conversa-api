@@ -9,13 +9,18 @@ uses
   System.SysUtils,
   FireDAC.Comp.Client,
   Conversa.Comando,
-  Conversa.Base;
+  Conversa.Base,
+  System.Generics.Collections;
 
 type
   TContato = class(TBase)
+  private
+    class function IncluirContato(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+    class function ObterContato(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+    class function AlterarContato(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+    class function ExcluirContato(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
   public
-    function Incluir: TJSONObject;
-    class procedure Rotas(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64);
+    class procedure Registrar(Rotas: TDictionary<String, TFunc<TComando, TComando, TFDConnection, Int64, TArray<Int64>>>);
   end;
 
 implementation
@@ -25,54 +30,72 @@ uses
 
 { TContato }
 
-class procedure TContato.Rotas(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64);
-const
-  RotaContato: Array[0..3] of String = ('contato.incluir', 'contato.obter', 'contato.alterar', 'contato.excluir');
-var
-  jaDados: TJSONArray;
+class procedure TContato.Registrar(Rotas: TDictionary<String, TFunc<TComando, TComando, TFDConnection, Int64, TArray<Int64>>>);
 begin
-  case IndexStr(cmdRequisicao.Recurso, RotaContato) of
-    0,1,2,3:
-    begin
-      with TContato.Create(cmdRequisicao.Dados, Conexao, Usuario) do
-      try
-        case IndexStr(cmdRequisicao.Recurso, RotaContato) of
-          0: cmdResposta.Dados.AddElement(Incluir);
-          1:
-          begin
-            jaDados := cmdResposta.Dados;
-            ObterBase('contato', jaDados);
-          end;
-          2: cmdResposta.Dados.AddElement(AlterarBase('contato'));
-          3: cmdResposta.Dados.AddElement(ExcluirBase('contato'));
-        end;
-      finally
-        Free;
-      end;
-    end;
+  Rotas.Add('contato.incluir', TContato.IncluirContato);
+  Rotas.Add('contato.obter',   TContato.ObterContato);
+  Rotas.Add('contato.alterar', TContato.AlterarContato);
+  Rotas.Add('contato.excluir', TContato.ExcluirContato);
+end;
+
+class function TContato.IncluirContato(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+begin
+  with TContato.Create(cmdRequisicao.Dados, Conexao, Usuario) do
+  try
+    QryDados.Close;
+    QryDados.Open(
+      'insert '+
+      '  into contato '+
+      '     ( usuario_id '+
+      '     , contato_id '+
+      '     , favorito '+
+      '     , incluido_id '+
+      '     ) '+
+      'values '+
+      '     ( '+ Dados.GetValue<String>('[0].usuario_id') +
+      '     , '+ Dados.GetValue<String>('[0].contato_id') +
+      '     , '+ Dados.GetValue<String>('[0].favorito') +
+      '     , '+ IntToStr(Usuario) +
+      '     ); '+
+      'select LAST_INSERT_ID() as id '
+    );
+    cmdResposta.Dados.AddElement(TJSONObject.Create.AddPair('id', TJSONNumber.Create(QryDados.FieldByName('id').AsLargeInt)));
+  finally
+    Free;
   end;
 end;
 
-function TContato.Incluir: TJSONObject;
+class function TContato.ObterContato(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+var
+  jaDados: TJSONArray;
 begin
-  QryDados.Close;
-  QryDados.Open(
-    'insert '+
-    '  into contato '+
-    '     ( usuario_id '+
-    '     , contato_id '+
-    '     , favorito '+
-    '     , incluido_id '+
-    '     ) '+
-    'values '+
-    '     ( '+ QuotedStr(Dados.GetValue<String>('[0].usuario_id')) +
-    '     , '+ QuotedStr(Dados.GetValue<String>('[0].contato_id')) +
-    '     , '+ QuotedStr(Dados.GetValue<String>('[0].favorito')) +
-    '     , '+ IntToStr(Usuario) +
-    '     ); '+
-    'select LAST_INSERT_ID() as id '
-  );
-  Result := TJSONObject.Create.AddPair('id', TJSONNumber.Create(QryDados.FieldByName('id').AsLargeInt));
+  with TContato.Create(cmdRequisicao.Dados, Conexao, Usuario) do
+  try
+    jaDados := cmdResposta.Dados;
+    ObterBase('contato', jaDados);
+  finally
+    Free;
+  end;
+end;
+
+class function TContato.AlterarContato(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+begin
+  with TContato.Create(cmdRequisicao.Dados, Conexao, Usuario) do
+  try
+    cmdResposta.Dados.AddElement(AlterarBase('contato'));
+  finally
+    Free;
+  end;
+end;
+
+class function TContato.ExcluirContato(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+begin
+  with TContato.Create(cmdRequisicao.Dados, Conexao, Usuario) do
+  try
+    cmdResposta.Dados.AddElement(ExcluirBase('contato'));
+  finally
+    Free;
+  end;
 end;
 
 end.

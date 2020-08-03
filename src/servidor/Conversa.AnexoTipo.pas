@@ -9,13 +9,18 @@ uses
   System.SysUtils,
   FireDAC.Comp.Client,
   Conversa.Comando,
-  Conversa.Base;
+  Conversa.Base,
+  System.Generics.Collections;
 
 type
   TAnexoTipo = class(TBase)
+  private
+    class function IncluirAnexoTipo(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+    class function ObterAnexoTipo(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+    class function AlterarAnexoTipo(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+    class function ExcluirAnexoTipo(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
   public
-    function Incluir: TJSONObject;
-    class procedure Rotas(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64);
+    class procedure Registrar(Rotas: TDictionary<String, TFunc<TComando, TComando, TFDConnection, Int64, TArray<Int64>>>);
   end;
 
 implementation
@@ -25,52 +30,70 @@ uses
 
 { TAnexoTipo }
 
-class procedure TAnexoTipo.Rotas(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64);
-const
-  RotaAnexoTipo: Array[0..3] of String = ('anexo_tipo.incluir', 'anexo_tipo.obter', 'anexo_tipo.alterar', 'anexo_tipo.excluir');
-var
-  jaDados: TJSONArray;
+class procedure TAnexoTipo.Registrar(Rotas: TDictionary<String, TFunc<TComando, TComando, TFDConnection, Int64, TArray<Int64>>>);
 begin
-  case IndexStr(cmdRequisicao.Recurso, RotaAnexoTipo) of
-    0,1,2,3:
-    begin
-      with TAnexoTipo.Create(cmdRequisicao.Dados, Conexao, Usuario) do
-      try
-        case IndexStr(cmdRequisicao.Recurso, RotaAnexoTipo) of
-          0: cmdResposta.Dados.AddElement(Incluir);
-          1:
-          begin
-            jaDados := cmdResposta.Dados;
-            ObterBase('anexo_tipo', jaDados);
-          end;
-          2: cmdResposta.Dados.AddElement(AlterarBase('anexo_tipo'));
-          3: cmdResposta.Dados.AddElement(ExcluirBase('anexo_tipo'));
-        end;
-      finally
-        Free;
-      end;
-    end;
+  Rotas.Add('anexo_tipo.incluir', TAnexoTipo.IncluirAnexoTipo);
+  Rotas.Add('anexo_tipo.obter',   TAnexoTipo.ObterAnexoTipo);
+  Rotas.Add('anexo_tipo.alterar', TAnexoTipo.AlterarAnexoTipo);
+  Rotas.Add('anexo_tipo.excluir', TAnexoTipo.ExcluirAnexoTipo);
+end;
+
+class function TAnexoTipo.IncluirAnexoTipo(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+begin
+  with TAnexoTipo.Create(cmdRequisicao.Dados, Conexao, Usuario) do
+  try
+    QryDados.Close;
+    QryDados.Open(
+      'insert '+
+      '  into anexo_tipo '+
+      '     ( descricao '+
+      '     , tipo '+
+      '     , incluido_id '+
+      '     ) '+
+      'values '+
+      '     ( '+ QuotedStr(Dados.GetValue<String>('[0].descricao')) +
+      '     , '+ Dados.GetValue<String>('[0].tipo') +
+      '     , '+ IntToStr(Usuario) +
+      '     ); '+
+      'select LAST_INSERT_ID() as id '
+    );
+    cmdResposta.Dados.AddElement(TJSONObject.Create.AddPair('id', TJSONNumber.Create(QryDados.FieldByName('id').AsLargeInt)));
+  finally
+    Free;
   end;
 end;
 
-function TAnexoTipo.Incluir: TJSONObject;
+class function TAnexoTipo.ObterAnexoTipo(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+var
+  jaDados: TJSONArray;
 begin
-  QryDados.Close;
-  QryDados.Open(
-    'insert '+
-    '  into anexo_tipo '+
-    '     ( descricao '+
-    '     , tipo '+
-    '     , incluido_id '+
-    '     ) '+
-    'values '+
-    '     ( '+ QuotedStr(Dados.GetValue<String>('[0].descricao')) +
-    '     , '+ QuotedStr(Dados.GetValue<String>('[0].tipo')) +
-    '     , '+ IntToStr(Usuario) +
-    '     ); '+
-    'select LAST_INSERT_ID() as id '
-  );
-  Result := TJSONObject.Create.AddPair('id', TJSONNumber.Create(QryDados.FieldByName('id').AsLargeInt));
+  with TAnexoTipo.Create(cmdRequisicao.Dados, Conexao, Usuario) do
+  try
+    jaDados := cmdResposta.Dados;
+    ObterBase('anexo_tipo', jaDados);
+  finally
+    Free;
+  end;
+end;
+
+class function TAnexoTipo.AlterarAnexoTipo(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+begin
+  with TAnexoTipo.Create(cmdRequisicao.Dados, Conexao, Usuario) do
+  try
+    cmdResposta.Dados.AddElement(AlterarBase('anexo_tipo'));
+  finally
+    Free;
+  end;
+end;
+
+class function TAnexoTipo.ExcluirAnexoTipo(cmdRequisicao, cmdResposta: TComando; Conexao: TFDConnection; Usuario: Int64): TArray<Int64>;
+begin
+  with TAnexoTipo.Create(cmdRequisicao.Dados, Conexao, Usuario) do
+  try
+    cmdResposta.Dados.AddElement(ExcluirBase('anexo_tipo'));
+  finally
+    Free;
+  end;
 end;
 
 end.
